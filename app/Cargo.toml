@@ -19,9 +19,10 @@ chrono.workspace = true
 tokio = { workspace = true, optional = true }
 comrak.workspace = true
 itertools.workspace = true
+reqwest = { workspace = true, optional = true }
 
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "dep:tokio"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "dep:tokio", "dep:reqwest"]
 

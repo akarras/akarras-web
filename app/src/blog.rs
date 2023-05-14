@@ -47,11 +47,14 @@ impl PostDetails {
             first_line.trim().to_string()
         };
         let tags = if second_line.starts_with("tags:") {
-            second_line[6..].split(",").map(|s| s.trim().to_string()).collect()
+            second_line[6..]
+                .split(",")
+                .map(|s| s.trim().to_string())
+                .collect()
         } else {
             vec![]
         };
-        let peek : String = lines.take(10).join("\n");
+        let peek: String = lines.filter(|s| !s.trim().is_empty()).take(10).join("\n\n");
         (extension == "md").then(|| {})?;
         Some(PostDetails {
             title,
@@ -73,7 +76,7 @@ pub struct Post {
 impl Post {
     #[cfg(feature = "ssr")]
     async fn load_from_file(slug: &str) -> Option<Self> {
-        use std::{str::FromStr, path::PathBuf};
+        use std::{path::PathBuf, str::FromStr};
 
         use itertools::Itertools;
         let mut path = PathBuf::from_str(&get_blog_directory()).unwrap();

@@ -1,7 +1,6 @@
-use leptos::*;
-use crate::{blog::BlogList};
+use crate::blog::BlogList;
 use crate::components::Card;
-
+use leptos::*;
 
 /// Renders the home page of your application.
 #[component]
@@ -16,7 +15,7 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
             <div>
                 <Card>
                     "Recent pictures:"
-                    
+
                 </Card>
                 <Card>
                     "professional"

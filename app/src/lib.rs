@@ -1,5 +1,7 @@
 mod blog;
 mod components;
+#[cfg(feature = "ssr")]
+mod flickr;
 mod home_page;
 mod pictures;
 mod projects;
@@ -15,6 +17,7 @@ pub mod error_template;
 pub fn register_server_fns() {
     BlogPosts::register().unwrap();
     BlogPost::register().unwrap();
+    GetPictures::register().unwrap();
 }
 
 #[component]
