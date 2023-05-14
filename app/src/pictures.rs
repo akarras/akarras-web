@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use leptos::*;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -7,7 +6,6 @@ use std::env;
 pub struct Picture {
     url: String,
     id: String,
-    // date_taken: DateTime<Utc>
 }
 
 #[derive(Deserialize, Serialize, Clone)]
