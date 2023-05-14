@@ -32,11 +32,13 @@ pub struct Photo {
     pub is_family: i64,
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum PhotoSize {
     Large,
 }
 
 impl PhotoSize {
+    #[cfg(feature = "ssr")]
     fn get_suffix(&self) -> &'static str {
         match self {
             PhotoSize::Large => "b",
@@ -45,6 +47,7 @@ impl PhotoSize {
 }
 
 impl Photo {
+    #[cfg(feature = "ssr")]
     pub(crate) fn to_image_url(&self, size: Option<PhotoSize>) -> String {
         let server = &self.server;
         let id = &self.id;

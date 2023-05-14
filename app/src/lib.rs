@@ -1,6 +1,5 @@
 mod blog;
 mod components;
-#[cfg(feature = "ssr")]
 mod flickr;
 mod home_page;
 mod pictures;
@@ -39,7 +38,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                     <A class="aria-current:font-bold" href="/" exact=true>"home"</A>
                     <A class="aria-current:font-bold" href="blog">"blog"</A>
                     <A class="aria-current:font-bold" href="projects">"projects"</A>
-                    <A class="aria-current:font-bold" href="pictures">"pictures"</A>
+                    <A class="aria-current:font-bold" href="photos">"photos"</A>
                     <div class="grow"></div>
                     <a href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
                     <a href="https://github.com/akarras">"github"</a>
@@ -53,7 +52,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                             <Route path="" view=|cx| view! { cx, <BlogList/> } />
                         </Route>
                         <Route path="projects" view=|cx| view! { cx, <Projects/>} />
-                        <Route path="pictures" view=|cx| view! { cx, <Pictures/>}/>
+                        <Route path="photos" view=|cx| view! { cx, <Pictures/>}/>
                     </Routes>
                 </main>
             </div>

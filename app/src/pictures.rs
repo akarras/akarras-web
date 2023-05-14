@@ -1,6 +1,9 @@
 use leptos::*;
+use leptos_router::*;
 use serde::{Deserialize, Serialize};
 use std::env;
+
+use crate::flickr::PhotoSize;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Picture {
@@ -14,7 +17,7 @@ pub struct Pictures {
 }
 
 #[server(GetPictures, "/api", "GetJSON")]
-async fn get_pictures() -> Result<Pictures, ServerFnError> {
+async fn get_pictures(size: Option<PhotoSize>) -> Result<Pictures, ServerFnError> {
     let pictures = crate::flickr::get_flickr_pictures("198236541@N06")
         .await
         .ok_or(ServerFnError::ServerError(
@@ -25,7 +28,7 @@ async fn get_pictures() -> Result<Pictures, ServerFnError> {
         .photo
         .into_iter()
         .map(|p| Picture {
-            url: p.to_image_url(Some(crate::flickr::PhotoSize::Large)),
+            url: p.to_image_url(size),
             id: p.id,
         })
         .collect();
@@ -36,7 +39,11 @@ async fn get_pictures() -> Result<Pictures, ServerFnError> {
 
 #[component]
 pub(crate) fn Pictures(cx: Scope) -> impl IntoView {
-    let recent_pictures = create_resource(cx, move || {}, move |_| get_pictures());
+    let recent_pictures = create_resource(
+        cx,
+        move || {},
+        move |_| get_pictures(Some(PhotoSize::Large)),
+    );
 
     view! { cx, <div>
         <a class="text-2xl font-bold" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
@@ -54,6 +61,33 @@ pub(crate) fn Pictures(cx: Scope) -> impl IntoView {
                         }).collect::<Vec<_>>()
                     })
                 }}
+            </Suspense>
+        </div>
+
+    </div>}
+}
+
+#[component]
+pub(crate) fn SmallPhotos(cx: Scope) -> impl IntoView {
+    let recent_pictures = create_resource(cx, move || {}, move |_| get_pictures(None));
+
+    view! { cx, <div>
+        <div class="flex flex-column">
+            <Suspense fallback=move || view!{cx, "loading"}>
+                <A href="/photos" class="snap-y snap-mandatory h-56 overflow-y-auto">
+                {move || {
+                    let pictures = recent_pictures.read(cx);
+                    // ignore errors for now
+                    let pictures = pictures.map(|p| p.ok()).flatten();
+                    pictures.map(|p| {
+                        p.recent_pictures.into_iter().map(|p| view!{cx,
+                            <div class="snap-center snap-always width-40 p-5 hover:border-red-600 dark:hover:border-red-300">
+                                <img src=p.url />
+                            </div>
+                        }).collect::<Vec<_>>()
+                    })
+                }}
+                </A>
             </Suspense>
         </div>
 
