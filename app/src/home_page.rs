@@ -7,10 +7,10 @@ use leptos::*;
 #[component]
 pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
     view! { cx,
-        <h1 class="text-3xl">"Welcome to aaron karras' personal home page!"</h1>
+        <h1 class="text-3xl">"Welcome to Aaron Karras' personal home page!"</h1>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="col-span-2">
-                "Recent blog posts:"
+                <h2 class="text-xl font-bold">"Recent blog posts:"</h2>
                 <BlogList />
             </div>
             <div>
@@ -34,7 +34,7 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                         <li>"electric vehicles & charging infrastructure"</li>
                         <li>"photography"</li>
                     </ul>
-                </Card>
+                </div>
             </div>
         </div>
     }

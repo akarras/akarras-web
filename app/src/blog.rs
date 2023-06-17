@@ -127,7 +127,7 @@ pub(crate) async fn get_post(slug: String) -> Result<Post, ServerFnError> {
 
 #[component]
 pub(crate) fn Blog(cx: Scope) -> impl IntoView {
-    view! {cx, <div class="grid grid-cols-1 md:grid-cols-2">
+    view! {cx, <div class="grid grid-cols-1 md:grid-cols-3">
             <Outlet/>
         </div>
     }
@@ -143,18 +143,16 @@ pub(crate) fn BlogList(cx: Scope) -> impl IntoView {
                 blog.map(move |blog| {
                     blog.posts.into_iter().map(move |post| {
                         view!{cx,
-                            <A href=format!("/blog/{}", post.slug)>
-                                <Card>
-                                    <span class="text-3xl font-bold">{&post.title}</span>
-                                    <div class="flex flex-row gap-2">
-                                        <span>"tags:"</span>
-                                        {post.tags.into_iter().map(|tag| view!{cx, <span class="">{tag}</span>}).collect::<Vec<_>>()}
-                                    </div>
-                                    <Markdown text=post.peek />
-                                    "..."
-                                    <div class="text-lg font-bold">"read more"</div>
-                                </Card>
-                            </A>
+                            <div>
+                                <span class="text-3xl font-bold">{&post.title}</span>
+                                <div class="flex flex-row gap-2">
+                                    <span>"tags:"</span>
+                                    {post.tags.into_iter().map(|tag| view!{cx, <span class="">{tag}</span>}).collect::<Vec<_>>()}
+                                </div>
+                                <Markdown text=post.peek />
+                                "..."
+                                <A href=format!("/blog/{}", post.slug)><div class="text-lg font-bold">"read more"</div></A>
+                            </div>
                         }
                     }).collect::<Vec<_>>()
                 })
@@ -184,7 +182,7 @@ pub(crate) fn BlogItem(cx: Scope) -> impl IntoView {
                     // ignoring errors for now
                     let post = post.map(|p| p.ok()).flatten();
                     post.map(|post| {
-                        view!{cx, <div>
+                        view!{cx, <div class="md:col-span-2">
                             <div class="text-4xl font-bold">{post.details.title}</div>
                             <Markdown text=post.content />
                         </div>}
