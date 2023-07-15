@@ -47,7 +47,7 @@ pub(crate) fn Pictures(cx: Scope) -> impl IntoView {
 
     view! { cx, <div>
         <a class="text-2xl font-bold" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
-        <div class="relative flex flex-row w-full snap-x snap-mandatory overflow-x-auto">
+        <div class="relative flex flex-col h-[calc(95vh-20px)] snap-y snap-mandatory overflow-y-auto">
             <Suspense fallback=move || view!{cx, "loading"}>
                 {move || {
                     let pictures = recent_pictures.read(cx);
@@ -55,8 +55,9 @@ pub(crate) fn Pictures(cx: Scope) -> impl IntoView {
                     let pictures = pictures.map(|p| p.ok()).flatten();
                     pictures.map(|p| {
                         p.recent_pictures.into_iter().map(|p| view!{cx,
-                            <a href=format!("https://www.flickr.com/photos/198236541@N06/{}/in/dateposted-public/", p.id) class="min-w-max snap-center snap-always p-5 hover:border-red-600 dark:hover:border-red-300">
-                                <img src=p.url />
+                            <a href=format!("https://www.flickr.com/photos/198236541@N06/{}/in/dateposted-public/", p.id)
+                                class="snap-center snap-always m-5 hover:border-red-600 dark:hover:border-red-300">
+                                <img class="object-contain max-h-[calc(100vh-100px)] max-w-screen" src=p.url />
                             </a>
                         }).collect::<Vec<_>>()
                     })
@@ -74,15 +75,15 @@ pub(crate) fn SmallPhotos(cx: Scope) -> impl IntoView {
     view! { cx, <div>
         <div class="flex flex-column">
             <Suspense fallback=move || view!{cx, "loading"}>
-                <A href="/photos" class="snap-y snap-mandatory h-56 overflow-y-auto">
+                <A href="/photos" class="snap-y snap-mandatory h-64 overflow-y-auto">
                 {move || {
                     let pictures = recent_pictures.read(cx);
                     // ignore errors for now
                     let pictures = pictures.map(|p| p.ok()).flatten();
                     pictures.map(|p| {
                         p.recent_pictures.into_iter().map(|p| view!{cx,
-                            <div class="snap-center snap-always width-40 p-5 hover:border-red-600 dark:hover:border-red-300">
-                                <img src=p.url />
+                            <div class="snap-center snap-always m-5 hover:border-red-600 dark:hover:border-red-300">
+                                <img class="object-contain h-56" src=p.url />
                             </div>
                         }).collect::<Vec<_>>()
                     })

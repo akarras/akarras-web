@@ -62,12 +62,72 @@ impl Photo {
 }
 
 #[cfg(feature = "ssr")]
-pub(crate) async fn get_flickr_pictures(user_id: &str) -> Option<FlickrGetPhotosResponse> {
+pub(crate) async fn get_flickr_pictures(user_id: &'static str) -> Option<FlickrGetPhotosResponse> {
     use leptos::tracing::info;
 
+    use crate::flickr::cache::FlickrApiCache;
+    if let Some(pictures) = FlickrApiCache::get_cached_user_pictures(user_id).await {
+        info!("returning cached flickr response");
+        return Some(pictures);
+    }
     let api_key = std::env::var("FLICKR_KEY").expect("flickr api key env needs to be set");
     let url = format!("https://www.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key={api_key}&user_id={user_id}&format=json&nojsoncallback=1");
     let client = reqwest::Client::new();
     info!("fetching url {url}");
-    client.get(url).send().await.ok()?.json().await.ok()
+    let pictures: Option<FlickrGetPhotosResponse> =
+        client.get(url).send().await.ok()?.json().await.ok();
+    if let Some(pictures) = &pictures {
+        info!("setting cached flickr response");
+        FlickrApiCache::set_cached_user_pictures(user_id, pictures.clone()).await;
+    }
+    pictures
+}
+
+#[cfg(feature = "ssr")]
+mod cache {
+    use retainer::Cache;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::sync::OnceCell;
+
+    use super::FlickrGetPhotosResponse;
+
+    pub(crate) struct FlickrApiCache;
+
+    #[derive(Clone)]
+    struct CacheImpl {
+        cache: Arc<retainer::Cache<&'static str, FlickrGetPhotosResponse>>,
+    }
+
+    #[cfg(feature = "ssr")]
+    impl FlickrApiCache {
+        async fn get_cache() -> &'static CacheImpl {
+            static INSTANCE: OnceCell<CacheImpl> = OnceCell::const_new();
+            INSTANCE
+                .get_or_init(|| async {
+                    CacheImpl {
+                        cache: Arc::new(Cache::new()),
+                    }
+                })
+                .await
+        }
+
+        pub(crate) async fn get_cached_user_pictures(
+            user_id: &'static str,
+        ) -> Option<FlickrGetPhotosResponse> {
+            let cache = Self::get_cache().await;
+            cache.cache.get(&user_id).await.map(|c| c.to_owned())
+        }
+
+        pub(crate) async fn set_cached_user_pictures(
+            user_id: &'static str,
+            flickr: FlickrGetPhotosResponse,
+        ) {
+            let cache = Self::get_cache().await;
+            cache
+                .cache
+                .insert(user_id, flickr, Duration::from_secs(60 * 60))
+                .await;
+        }
+    }
 }

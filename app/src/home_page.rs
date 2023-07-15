@@ -18,8 +18,8 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                 <Card>
                     <SmallPhotos />
                 </Card>
+                <div class="font-bold font-lg">"professional"</div>
                 <Card>
-                    "aaron has experience:"
                     <ul class="list-disc">
                         <li>"Rustacean for the past two years"</li>
                         <li>"C++ networking in systems"</li>
@@ -27,10 +27,8 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                         <li>"chronically curious"</li>
                     </ul>
                 </Card>
+                <div class="font-bold font-lg">"current hobbies:"</div>
                 <Card>
-                    <div>
-                    </div>
-                    "currently addicted to:"
                     <ul class="list-disc">
                         <li>"gaming - playing ffxiv, overwatch, diablo 4"</li>
                         <li>"electric vehicles & charging infrastructure"</li>

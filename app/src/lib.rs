@@ -12,13 +12,6 @@ use leptos_router::*;
 
 pub mod error_template;
 
-#[cfg(feature = "ssr")]
-pub fn register_server_fns() {
-    BlogPosts::register().unwrap();
-    BlogPost::register().unwrap();
-    GetPictures::register().unwrap();
-}
-
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
