@@ -14,7 +14,7 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                 <BlogList />
             </div>
             <div>
-                "Recent photos:"
+                <div class="font-bold font-lg">"Recent photos"</div>
                 <Card>
                     <SmallPhotos />
                 </Card>
@@ -27,7 +27,7 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                         <li>"chronically curious"</li>
                     </ul>
                 </Card>
-                <div class="font-bold font-lg">"current hobbies:"</div>
+                <div class="font-bold font-lg">"in my brain"</div>
                 <Card>
                     <ul class="list-disc">
                         <li>"gaming - playing ffxiv, overwatch, diablo 4"</li>
