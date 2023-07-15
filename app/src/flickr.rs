@@ -105,9 +105,14 @@ mod cache {
             static INSTANCE: OnceCell<CacheImpl> = OnceCell::const_new();
             INSTANCE
                 .get_or_init(|| async {
-                    CacheImpl {
+                    let i = CacheImpl {
                         cache: Arc::new(Cache::new()),
-                    }
+                    };
+                    let clone = i.clone();
+                    let _monitor = tokio::spawn(async move {
+                        clone.cache.monitor(4, 0.25, Duration::from_secs(60)).await
+                    });
+                    i
                 })
                 .await
         }
