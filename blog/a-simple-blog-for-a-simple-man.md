@@ -1,5 +1,7 @@
 # A simple blog for a simple man (in Rust)
 tags: rust, blog, blah
+
+note: this is still very much a draft, I am not at all convinced I have the patience to be a pro blogger
 ## initial goals
 
 - build a blog
