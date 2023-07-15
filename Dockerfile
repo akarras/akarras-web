@@ -5,7 +5,7 @@ FROM rustlang/rust:nightly-bullseye as builder
 # RUN echo $PATH
 # RUN cp cargo-binstall /usr/local/cargo/bin 
 # RUN cargo binstall cargo-leptos -y
-RUN cargo install --git https://github.com/dgsantana/cargo-leptos.git --branch update_wasm_bindgen_to_0.2.85 cargo-leptos
+RUN cargo install cargo-leptos
 RUN rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 RUN rustup target add wasm32-unknown-unknown
 RUN mkdir -p /app
