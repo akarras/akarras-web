@@ -34,7 +34,7 @@ pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
                         <li>"electric vehicles & charging infrastructure"</li>
                         <li>"photography"</li>
                     </ul>
-                </div>
+                </Card>
             </div>
         </div>
     }
