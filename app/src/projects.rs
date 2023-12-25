@@ -1,8 +1,8 @@
 use leptos::*;
 
 #[component]
-pub(crate) fn Projects(cx: Scope) -> impl IntoView {
-    view! {cx,
+pub(crate) fn Projects() -> impl IntoView {
+    view! {
         "Fair warning, most my side projects are just random hobby garbage"<br/>
         "For the latest hot garbage, do checkout my "<a href="https://github.com/akarras">"github"</a>
         <h3><a href="https://ultros.app">"Ultros"</a></h3>

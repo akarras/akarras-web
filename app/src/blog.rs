@@ -126,28 +126,28 @@ pub(crate) async fn get_post(slug: String) -> Result<Post, ServerFnError> {
 }
 
 #[component]
-pub(crate) fn Blog(cx: Scope) -> impl IntoView {
-    view! {cx, <div class="grid grid-cols-1 md:grid-cols-3">
+pub(crate) fn Blog() -> impl IntoView {
+    view! { <div class="grid grid-cols-1 md:grid-cols-3">
             <Outlet/>
         </div>
     }
 }
 
 #[component]
-pub(crate) fn BlogList(cx: Scope) -> impl IntoView {
-    let blog_posts = create_resource(cx, || {}, |()| async move { get_blog_posts().await });
-    view! {cx,
-        <Suspense fallback=move || view!{cx, "Loading"}>
+pub(crate) fn BlogList() -> impl IntoView {
+    let blog_posts = create_resource( || {}, |()| async move { get_blog_posts().await });
+    view! {
+        <Suspense fallback=move || view!{ "Loading"}>
             {move || {
-                let blog = blog_posts.read(cx).map(|p| p.ok()).flatten();
+                let blog = blog_posts.get().map(|p| p.ok()).flatten();
                 blog.map(move |blog| {
                     blog.posts.into_iter().map(move |post| {
-                        view!{cx,
+                        view!{
                             <div>
                                 <span class="text-3xl font-bold">{&post.title}</span>
                                 <div class="flex flex-row gap-2">
                                     <span>"tags:"</span>
-                                    {post.tags.into_iter().map(|tag| view!{cx, <span class="">{tag}</span>}).collect::<Vec<_>>()}
+                                    {post.tags.into_iter().map(|tag| view!{ <span class="">{tag}</span>}).collect::<Vec<_>>()}
                                 </div>
                                 <Markdown text=post.peek />
                                 "..."
@@ -162,10 +162,10 @@ pub(crate) fn BlogList(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub(crate) fn BlogItem(cx: Scope) -> impl IntoView {
-    let params = use_params_map(cx);
+pub(crate) fn BlogItem() -> impl IntoView {
+    let params = use_params_map();
     let post = create_resource(
-        cx,
+        
         move || params.with(|p| p.get("slug").cloned()),
         move |slug| async move {
             if let Some(slug) = slug {
@@ -175,14 +175,14 @@ pub(crate) fn BlogItem(cx: Scope) -> impl IntoView {
             }
         },
     );
-    view! {cx,
-        <Suspense fallback=move || view!{cx, "Loading"}>
+    view! {
+        <Suspense fallback=move || view!{ "Loading"}>
             {move || {
-                    let post = post.read(cx);
+                    let post = post.get();
                     // ignoring errors for now
                     let post = post.map(|p| p.ok()).flatten();
                     post.map(|post| {
-                        view!{cx, <div class="md:col-span-2">
+                        view!{ <div class="md:col-span-2">
                             <div class="text-4xl font-bold">{post.details.title}</div>
                             <Markdown text=post.content />
                         </div>}

@@ -5,8 +5,8 @@ use leptos::*;
 
 /// Renders the home page of your application.
 #[component]
-pub(crate) fn HomePage(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub(crate) fn HomePage() -> impl IntoView {
+    view! { 
         <h1 class="text-3xl">"Welcome to Aaron Karras' personal home page!"</h1>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="col-span-2">

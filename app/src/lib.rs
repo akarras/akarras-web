@@ -13,12 +13,12 @@ use leptos_router::*;
 pub mod error_template;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
-    provide_meta_context(cx);
+    provide_meta_context();
 
     view! {
-        cx,
+        
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/akarras.css"/>
 
@@ -39,13 +39,13 @@ pub fn App(cx: Scope) -> impl IntoView {
                 </nav>
                 <main>
                     <Routes>
-                        <Route path="" view=|cx| view! { cx, <HomePage/> }/>
-                        <Route path="blog" view=|cx| view! { cx, <Blog/> }>
-                            <Route path=":slug" view=|cx| view! { cx, <BlogItem/> } />
-                            <Route path="" view=|cx| view! { cx, <BlogList/> } />
+                        <Route path="" view=HomePage />
+                        <Route path="blog" view=Blog >
+                            <Route path=":slug" view=BlogItem />
+                            <Route path="" view=BlogList />
                         </Route>
-                        <Route path="projects" view=|cx| view! { cx, <Projects/>} />
-                        <Route path="photos" view=|cx| view! { cx, <Pictures/>}/>
+                        <Route path="projects" view=Projects />
+                        <Route path="photos" view=Pictures />
                     </Routes>
                 </main>
             </div>
