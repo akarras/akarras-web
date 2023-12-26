@@ -318,7 +318,7 @@ struct VehicleSpec {
     name: &'static str,
     battery_max: Energy,
     charge_curve: ChargeCurve,
-    epa_mi_per_kwh: f64,
+    epa_miles: f64,
 }
 
 impl Eq for VehicleSpec {}
@@ -382,27 +382,76 @@ impl Vehicle {
     }
 }
 
-static VEHICLES: &'static [VehicleSpec] = &[VehicleSpec {
-    name: "KIA EV6 Long Range AWD",
-    battery_max: Energy::from_kwh(77.4),
-    charge_curve: ChargeCurve {
-        data_points: &[
-            // TODO: refine this curve
-            CurvePoint::new(0.00, 20.0),
-            CurvePoint::new(2.0, 220.0),
-            CurvePoint::new(45.0, 238.0),
-            CurvePoint::new(50.0, 198.0),
-            CurvePoint::new(55.0, 198.0),
-            CurvePoint::new(60.0, 100.0),
-            CurvePoint::new(70.00, 198.0),
-            CurvePoint::new(78.0, 168.0),
-            CurvePoint::new(80.0, 0.0),
-            CurvePoint::new(82.0, 125.0),
-            CurvePoint::new(100.0, 20.0),
-        ],
+static VEHICLES: &'static [VehicleSpec] = &[
+    VehicleSpec {
+        name: "KIA EV6 Long Range AWD",
+        battery_max: Energy::from_kwh(77.4),
+        charge_curve: ChargeCurve {
+            data_points: &[
+                // TODO: refine this curve
+                CurvePoint::new(0.00, 20.0),
+                CurvePoint::new(2.0, 220.0),
+                CurvePoint::new(45.0, 238.0),
+                CurvePoint::new(50.0, 198.0),
+                CurvePoint::new(55.0, 198.0),
+                CurvePoint::new(60.0, 100.0),
+                CurvePoint::new(70.00, 198.0),
+                CurvePoint::new(78.0, 168.0),
+                CurvePoint::new(80.0, 0.0),
+                CurvePoint::new(82.0, 125.0),
+                CurvePoint::new(100.0, 20.0),
+            ],
+        },
+        epa_miles: 270.0,
     },
-    epa_mi_per_kwh: 3.125,
-}];
+    VehicleSpec {
+        name: "Lucid Air Grand Touring",
+        battery_max: Energy::from_kwh(112.0),
+        charge_curve: ChargeCurve {
+            data_points: &[
+                CurvePoint::new(0.00, 200.0),
+                CurvePoint::new(2.0, 280.0),
+                CurvePoint::new(10.0, 300.0),
+                CurvePoint::new(20.0, 290.0),
+                CurvePoint::new(80.0, 100.0),
+                CurvePoint::new(100.0, 10.0),
+            ],
+        },
+        epa_miles: 510.0,
+    },
+    VehicleSpec {
+        name: "Chevy Bolt 2022",
+        battery_max: Energy::from_kwh(65.0),
+        charge_curve: ChargeCurve {
+            data_points: &[
+                CurvePoint::new(0.0, 55.0),
+                CurvePoint::new(50.0, 55.0),
+                CurvePoint::new(70.0, 33.0),
+                CurvePoint::new(93.0, 26.0),
+                CurvePoint::new(100.0, 5.0),
+            ],
+        },
+        epa_miles: 259.0,
+    },
+    VehicleSpec {
+        name: "Tesla Model 3 LR AWD 2021",
+        battery_max: Energy::from_kwh(82.0),
+        charge_curve: ChargeCurve {
+            data_points: &[
+                CurvePoint::new(0.0, 80.0),
+                CurvePoint::new(8.0, 225.0),
+                CurvePoint::new(11.0, 250.0),
+                CurvePoint::new(20.0, 250.0),
+                CurvePoint::new(21.0, 200.0),
+                CurvePoint::new(25.0, 150.0),
+                CurvePoint::new(30.0, 140.0),
+                CurvePoint::new(45.0, 145.0),
+                CurvePoint::new(100.0, 5.0),
+            ],
+        },
+        epa_miles: 358.0,
+    },
+];
 
 #[derive(Clone, Copy, Debug)]
 enum LoadSharingStrategy {
@@ -513,7 +562,7 @@ fn VehicleList(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
             <h2 class="text-xl">"Vehicles:"</h2>
             <ul class="list-disc">
             <For each={move || vehicles().into_iter().enumerate()}
-                key=|(i, _v)| *i
+                key=|(i, v)| (*i, v.spec.name)
                 let:vehicle>
                 <li>{vehicle.1.spec.name}" " {vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()} <button class="bg-red-600 rounded w-10 border border-neutral-500" on:click=move |_| vehicles.update(|v| { v.remove(vehicle.0);})>"X"</button></li>
             </For>
