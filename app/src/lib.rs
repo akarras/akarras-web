@@ -35,15 +35,15 @@ pub fn App() -> impl IntoView {
         <Router>
             <div class="container mx-auto px-4">
                 <nav class="p-4 flex flex-row align-items-middle justify-items-stretch gap-4">
-                    <A class="aria-current:font-bold" href="/" exact=true>"home"</A>
-                    <A class="aria-current:font-bold" href="blog">"blog"</A>
-                    <A class="aria-current:font-bold" href="projects">"projects"</A>
-                    <A class="aria-current:font-bold" href="photos">"photos"</A>
-                    <A class="aria-current:font-bold" href="toys">"toys"</A>
+                    <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="/" exact=true>"home"</A>
+                    <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="blog">"blog"</A>
+                    <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="projects">"projects"</A>
+                    <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="photos">"photos"</A>
+                    <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="toys">"toys"</A>
                     <div class="grow"></div>
-                    <a href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
-                    <a href="https://github.com/akarras">"github"</a>
-                    <a href="mailto:aaron@akarras.com">"email"</a>
+                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
+                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="https://github.com/akarras">"github"</a>
+                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="mailto:aaron@akarras.com">"email"</a>
                 </nav>
                 <main>
                     <Routes>

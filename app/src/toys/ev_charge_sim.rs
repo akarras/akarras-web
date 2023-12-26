@@ -816,10 +816,9 @@ impl Charger {
                     .sum::<Power>();
                 let total_power = self.grid_connection;
                 self.currently_charging.retain_mut(|c| {
-                    if let Some(power) = c
-                        .vehicle
-                        .get_next_power_request((total_power - allocated_power).min(max_per_plug))
-                    {
+                    if let Some(power) = c.vehicle.get_next_power_request(
+                        (c.allocated_power + (total_power - allocated_power)).min(max_per_plug),
+                    ) {
                         let previous_rounded_power =
                             power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil();
                         let current_rounded_power =
