@@ -11,11 +11,11 @@ RUN rustup target add wasm32-unknown-unknown
 RUN mkdir -p /app
 WORKDIR /app
 COPY . .
-ENV LEPTOS_BIN_TARGET_TRIPLE="x86_64-unknown-linux-gnu"
+# ENV LEPTOS_BIN_TARGET_TRIPLE="x86_64-unknown-linux-gnu"
 RUN cargo leptos --manifest-path=./Cargo.toml build --release -vv
 
 FROM rustlang/rust:nightly-bullseye-slim as runner
-COPY --from=builder /app/target/server/x86_64-unknown-linux-gnu/release/server /app/
+COPY --from=builder /app/target/release/server /app/
 COPY --from=builder /app/target/site /app/site
 COPY --from=builder /app/blog /app/blog
 COPY --from=builder /app/Cargo.toml /app/
