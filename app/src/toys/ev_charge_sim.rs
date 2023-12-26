@@ -3,6 +3,7 @@ use itertools::Itertools;
 use leptos::*;
 use log::info;
 use std::{
+    collections::VecDeque,
     fmt::Display,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Sub},
@@ -498,7 +499,7 @@ fn VehiclePicker(
 }
 
 #[component]
-fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
+fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
     let (vehicle_spec, set_vehicle_spec) = create_signal(None);
     let specs = create_memo(move |_| {
         vehicle_spec()
@@ -512,13 +513,12 @@ fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
                 <h4 class="text-xl">"Vehicle:"</h4>
                 <div class="flex flex-row gap-1">
                     <VehiclePicker current_vehicle=vehicle_spec set_vehicle=set_vehicle_spec />
-                    <div class="flex flex-col" class:collapse=move || vehicle_spec.with(|spec| spec.is_none())>
-                        <span>{move || specs().name.to_string()}</span>
+                    <div class="flex flex-col" class:invisible=move || vehicle_spec.with(|spec| spec.is_none())>
                         <span>"battery capacity: "{move || specs().battery_max.to_string()}</span>
                         <span>"average charge speed: "{move || specs().charge_curve.average_power().to_string()}</span>
                         <span>"average 10->80% charge speed: "{move || specs().charge_curve.percent_to_percent(PercentFull::new(10.0), PercentFull::new(80.0)).average_power().to_string()}</span>
                     </div>
-                    <div class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
+                    <div class:invisible=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
                         <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Charge start battery%: "{move || start_energy().to_string()}" "{move || (start_energy() * specs().battery_max).to_string()}</label>
                         <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || start_energy().as_float().to_string() on:input=move |e| {
                             if let Ok(value) = event_target_value(&e).parse() {
@@ -544,7 +544,7 @@ fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
                     <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-neutral-600 p-1 border border-neutral-500 hover:bg-neutral-700 rounded h-7"
                         on:click=move |_| {
                             if let Some(current) = vehicle_spec.get_untracked() {
-                                vehicles.update(|v| v.push(Vehicle::new(*current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max)));
+                                vehicles.update(|v| v.push_back(Vehicle::new(*current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max)));
                                 set_vehicle_spec(None);
                             }
                         }>
@@ -556,7 +556,7 @@ fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
 }
 
 #[component]
-fn VehicleList(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
+fn VehicleList(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
     view! {
         <div class="flex flex-col" class:collapse=move || vehicles.with(|v| v.is_empty())>
             <h2 class="text-xl">"Vehicles:"</h2>
@@ -848,7 +848,7 @@ impl Charger {
 
 struct Sim {
     /// all of the vehicles that are waiting to be charged
-    vehicles: Vec<Vehicle>,
+    vehicles: VecDeque<Vehicle>,
     /// all of the chargers in the simulation
     chargers: Vec<Charger>,
     /// length of time each step should simulate
@@ -876,7 +876,7 @@ impl Sim {
         if !self.vehicles.is_empty() {
             for charger in self.chargers.iter_mut().filter(|c| c.has_free_plug()) {
                 while charger.has_free_plug() && !self.vehicles.is_empty() {
-                    charger.add_vehicle(self.vehicles.pop().unwrap());
+                    charger.add_vehicle(self.vehicles.pop_front().unwrap());
                 }
             }
         }
@@ -921,7 +921,7 @@ impl Sim {
 
 #[component]
 fn Simulation(
-    vehicles: RwSignal<Vec<Vehicle>>,
+    vehicles: RwSignal<VecDeque<Vehicle>>,
     chargers: RwSignal<Vec<Charger>>,
     sim_step: ReadSignal<Duration>,
 ) -> impl IntoView {
@@ -972,7 +972,7 @@ fn Simulation(
 
 #[component]
 pub fn VehicleSim() -> impl IntoView {
-    let vehicles = create_rw_signal(vec![]);
+    let vehicles = create_rw_signal(VecDeque::new());
     let chargers = create_rw_signal(vec![]);
     let (simulation_time, _) = create_signal(Duration::from_secs(15));
     view! {

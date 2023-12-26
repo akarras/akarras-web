@@ -81,7 +81,7 @@ where
                 on:focusout=move |_| set_focused(false)
                 on:input=move |e| { set_current_input(event_target_value(&e)); }
                 prop:value=current_input />
-            <div class="absolute top-2 left-2 select-none cursor" class:inviisble=move || has_focus() || !current_input().is_empty() on:click=move |_| {
+            <div class="absolute top-2 left-2 select-none cursor" class:invisible=move || has_focus() || !current_input().is_empty() on:click=move |_| {
                 if let Some(input) = input() {
                     let _ = input.focus();
                 }
@@ -108,7 +108,7 @@ where
                         }>{items.with(|i| i.get(data.0).cloned()).map(|c| {move || {
                             let view = if let Some(m) = fuzzy_search(&current_input(), &data.1){
                                 let target = data.1.clone();
-                                view!{ <div class="flex flex-row"><MatchFormatter m=m target=target /></div> }
+                                view!{ <div class="flex flex-row"><span><MatchFormatter m=m target=target /></span></div> }
                             } else {
                                 view!{ <div class="flex flex-row">{&data.1}</div>}
                             };
