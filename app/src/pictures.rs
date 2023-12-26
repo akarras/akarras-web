@@ -39,11 +39,8 @@ async fn get_pictures(size: Option<PhotoSize>) -> Result<Pictures, ServerFnError
 
 #[component]
 pub(crate) fn Pictures() -> impl IntoView {
-    let recent_pictures = create_resource(
-        
-        move || {},
-        move |_| get_pictures(Some(PhotoSize::Large)),
-    );
+    let recent_pictures =
+        create_resource(move || {}, move |_| get_pictures(Some(PhotoSize::Large)));
 
     view! {  <div>
         <a class="text-2xl font-bold" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
@@ -70,7 +67,7 @@ pub(crate) fn Pictures() -> impl IntoView {
 
 #[component]
 pub(crate) fn SmallPhotos() -> impl IntoView {
-    let recent_pictures = create_resource( move || {}, move |_| get_pictures(None));
+    let recent_pictures = create_resource(move || {}, move |_| get_pictures(None));
 
     view! {  <div>
         <div class="flex flex-column">

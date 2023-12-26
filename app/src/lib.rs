@@ -4,8 +4,9 @@ mod flickr;
 mod home_page;
 mod pictures;
 mod projects;
+mod toys;
 
-use crate::{blog::*, home_page::*, pictures::*, projects::*};
+use crate::{blog::*, home_page::*, pictures::*, projects::*, toys::{ToyPage, VehicleSim}};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -18,12 +19,12 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        
+
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/akarras.css"/>
 
         <Title text="aaron karras' personal home page"/>
-        <Body class="bg-neutral-100 dark:bg-neutral-900 text-base dark:text-white"/>
+        <Body class="bg-neutral-100 dark:bg-neutral-950 text-base dark:text-neutral-200"/>
         // content for this welcome page
         <Router>
             <div class="container mx-auto px-4">
@@ -32,6 +33,7 @@ pub fn App() -> impl IntoView {
                     <A class="aria-current:font-bold" href="blog">"blog"</A>
                     <A class="aria-current:font-bold" href="projects">"projects"</A>
                     <A class="aria-current:font-bold" href="photos">"photos"</A>
+                    <A class="aria-current:font-bold" href="toys">"toys"</A>
                     <div class="grow"></div>
                     <a href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
                     <a href="https://github.com/akarras">"github"</a>
@@ -46,6 +48,8 @@ pub fn App() -> impl IntoView {
                         </Route>
                         <Route path="projects" view=Projects />
                         <Route path="photos" view=Pictures />
+                        <Route path="toys" view=ToyPage />
+                        <Route path="toys/ev-charger-sim" view=VehicleSim />
                     </Routes>
                 </main>
             </div>

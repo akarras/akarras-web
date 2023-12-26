@@ -26,7 +26,6 @@ pub struct PostDetails {
 impl PostDetails {
     #[cfg(feature = "ssr")]
     async fn get_post_details(path: &std::path::PathBuf) -> Option<Self> {
-        use itertools::Itertools;
         use tokio::io::AsyncReadExt;
 
         let mut post = tokio::fs::File::open(path).await.ok()?;
@@ -54,7 +53,7 @@ impl PostDetails {
         } else {
             vec![]
         };
-        let peek: String = lines.filter(|s| !s.trim().is_empty()).take(10).join("\n\n");
+        let peek: String = lines.filter(|s| !s.trim().is_empty()).take(10).collect::<Vec<_>>().join("\n\n");
         (extension == "md").then(|| {})?;
         Some(PostDetails {
             title,
@@ -77,13 +76,11 @@ impl Post {
     #[cfg(feature = "ssr")]
     async fn load_from_file(slug: &str) -> Option<Self> {
         use std::{path::PathBuf, str::FromStr};
-
-        use itertools::Itertools;
         let mut path = PathBuf::from_str(&get_blog_directory()).unwrap();
         path.push(format!("{slug}.md"));
         let content = tokio::fs::read_to_string(&path).await.ok()?;
         let details = PostDetails::get_post_details(&path).await?;
-        let content = content.lines().skip(2).join("\n");
+        let content = content.lines().skip(2).collect::<Vec<_>>().join("\n");
         Some(Self { content, details })
     }
 }
@@ -135,7 +132,7 @@ pub(crate) fn Blog() -> impl IntoView {
 
 #[component]
 pub(crate) fn BlogList() -> impl IntoView {
-    let blog_posts = create_resource( || {}, |()| async move { get_blog_posts().await });
+    let blog_posts = create_resource(|| {}, |()| async move { get_blog_posts().await });
     view! {
         <Suspense fallback=move || view!{ "Loading"}>
             {move || {
@@ -165,7 +162,6 @@ pub(crate) fn BlogList() -> impl IntoView {
 pub(crate) fn BlogItem() -> impl IntoView {
     let params = use_params_map();
     let post = create_resource(
-        
         move || params.with(|p| p.get("slug").cloned()),
         move |slug| async move {
             if let Some(slug) = slug {

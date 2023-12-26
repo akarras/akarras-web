@@ -21,9 +21,14 @@ comrak.workspace = true
 itertools.workspace = true
 reqwest = { workspace = true, optional = true }
 retainer = { workspace = true, optional = true }
+const_soft_float = "0.1.4"
+sublime_fuzzy = "0.7.0"
+leptos-use.workspace = true
+charming = {version = "0.3.1", optional = true}
+log.workspace = true
 
 [features]
 default = []
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "dep:tokio", "dep:reqwest", "dep:retainer"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "charming", "charming/wasm"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "dep:tokio", "dep:reqwest", "dep:retainer", "leptos-use/ssr"]
 
