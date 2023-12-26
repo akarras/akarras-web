@@ -53,7 +53,11 @@ impl PostDetails {
         } else {
             vec![]
         };
-        let peek: String = lines.filter(|s| !s.trim().is_empty()).take(10).collect::<Vec<_>>().join("\n\n");
+        let peek: String = lines
+            .filter(|s| !s.trim().is_empty())
+            .take(10)
+            .collect::<Vec<_>>()
+            .join("\n\n");
         (extension == "md").then(|| {})?;
         Some(PostDetails {
             title,

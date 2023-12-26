@@ -1,8 +1,13 @@
-use std::{fmt::Display, ops::{Div, Sub, Mul, Add, AddAssign}, time::Duration, iter::Sum};
 use const_soft_float::soft_f64::SoftF64;
 use itertools::Itertools;
 use leptos::*;
 use log::info;
+use std::{
+    fmt::Display,
+    iter::Sum,
+    ops::{Add, AddAssign, Div, Mul, Sub},
+    time::Duration,
+};
 
 // class="collapse"
 
@@ -16,7 +21,9 @@ struct PercentFull(u16);
 
 impl std::fmt::Debug for PercentFull {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("PercentFull").field(&self.to_string()).finish()
+        f.debug_tuple("PercentFull")
+            .field(&self.to_string())
+            .finish()
     }
 }
 
@@ -37,13 +44,25 @@ impl PercentFull {
 
     /// gets this percent as a float from 1.0 -> 0.0
     const fn as_partial_float(&self) -> f64 {
-        SoftF64(self.0 as f64).div(SoftF64(Self::PRECISION).mul(SoftF64(100.0))).to_f64()
+        SoftF64(self.0 as f64)
+            .div(SoftF64(Self::PRECISION).mul(SoftF64(100.0)))
+            .to_f64()
     }
 }
 
 impl Display for PercentFull {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:.2}%", self.as_float())
+    }
+}
+
+impl Mul<Energy> for PercentFull {
+    type Output = Energy;
+
+    fn mul(self, rhs: Energy) -> Self::Output {
+        Energy {
+            watt_hours: rhs.watt_hours * self.as_partial_float(),
+        }
     }
 }
 
@@ -100,7 +119,9 @@ struct Power {
 
 impl std::fmt::Debug for Power {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Power").field("kwh", &self.to_string()).finish()
+        f.debug_struct("Power")
+            .field("kw", &self.to_string())
+            .finish()
     }
 }
 
@@ -125,7 +146,9 @@ impl Div<i32> for Power {
     type Output = Power;
 
     fn div(self, rhs: i32) -> Self::Output {
-        Self { watts: self.watts / rhs }
+        Self {
+            watts: self.watts / rhs,
+        }
     }
 }
 
@@ -133,7 +156,9 @@ impl Div<u32> for Power {
     type Output = Power;
 
     fn div(self, rhs: u32) -> Self::Output {
-        Self { watts: self.watts / (rhs as i32) }
+        Self {
+            watts: self.watts / (rhs as i32),
+        }
     }
 }
 
@@ -151,6 +176,15 @@ impl Mul<f64> for Power {
 
     fn mul(mut self, rhs: f64) -> Self::Output {
         self.watts = (self.watts as f64 * rhs) as i32;
+        self
+    }
+}
+
+impl Mul<i32> for Power {
+    type Output = Power;
+
+    fn mul(mut self, rhs: i32) -> Self::Output {
+        self.watts = self.watts + rhs;
         self
     }
 }
@@ -174,7 +208,6 @@ impl Sub for Power {
     }
 }
 
-
 impl Display for Power {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let power_kw = self.as_kw();
@@ -197,7 +230,7 @@ impl Sum<Power> for Power {
         while let Some(next) = iter.next() {
             watts += next.watts;
         }
-        Power{ watts }
+        Power { watts }
     }
 }
 
@@ -225,29 +258,44 @@ struct ChargeCurve {
 impl ChargeCurve {
     /// calculates the average charge charge power
     fn average_power(&self) -> Power {
-        let total_power = self.data_points.windows(2).map(|points| {
-            let (point_1, point_2) = match points {
-                [point1, point2] => (point1, point2),
-                _ => unreachable!("should always have two points")
-            };
-            let start_watts = point_1.charge_power.watts;
-            let end_watts = point_2.charge_power.watts;
-            let start_percent = point_1.state_of_charge.as_partial_float();
-            let end_percent = point_2.state_of_charge.as_partial_float();
-            let span_length = end_percent - start_percent;
-            ((start_watts + end_watts) / 2) as f64 * span_length
-        }).sum::<f64>();
-        Power { watts: total_power as i32 }
+        let total_power = self
+            .data_points
+            .windows(2)
+            .map(|points| {
+                let (point_1, point_2) = match points {
+                    [point1, point2] => (point1, point2),
+                    _ => unreachable!("should always have two points"),
+                };
+                let start_watts = point_1.charge_power.watts;
+                let end_watts = point_2.charge_power.watts;
+                let start_percent = point_1.state_of_charge.as_partial_float();
+                let end_percent = point_2.state_of_charge.as_partial_float();
+                let span_length = end_percent - start_percent;
+                ((start_watts + end_watts) / 2) as f64 * span_length
+            })
+            .sum::<f64>();
+        Power {
+            watts: total_power as i32,
+        }
     }
 
     /// linearly interpolates the power between two different charge for the given SOC
     fn power_at(&self, percent: PercentFull) -> Power {
         let internal_soc = percent.0;
-        if let Some(exact) = self.data_points.iter().find(|p| p.state_of_charge == percent) {
+        if let Some(exact) = self
+            .data_points
+            .iter()
+            .find(|p| p.state_of_charge == percent)
+        {
             return exact.charge_power;
         }
-        if let Some((a, b)) = self.data_points.iter().tuple_windows().find(|(a, b)| a.state_of_charge.0 < internal_soc && internal_soc < b.state_of_charge.0) {
-            let span_length = b.state_of_charge.as_partial_float() - a.state_of_charge.as_partial_float();
+        if let Some((a, b)) =
+            self.data_points.iter().tuple_windows().find(|(a, b)| {
+                a.state_of_charge.0 < internal_soc && internal_soc < b.state_of_charge.0
+            })
+        {
+            let span_length =
+                b.state_of_charge.as_partial_float() - a.state_of_charge.as_partial_float();
             let length = percent.as_partial_float() - a.state_of_charge.as_partial_float();
             info!("{a:?} {b:?} {} {}", span_length, length);
             // y = mx + b (simple slope)
@@ -285,7 +333,11 @@ struct Vehicle {
 
 impl Vehicle {
     fn new(spec: VehicleSpec, state_of_charge: Energy, unplug_at: Energy) -> Vehicle {
-        Vehicle { spec, current_charge: state_of_charge, unplug_at }
+        Vehicle {
+            spec,
+            current_charge: state_of_charge,
+            unplug_at,
+        }
     }
 
     fn soc(&self) -> PercentFull {
@@ -296,14 +348,27 @@ impl Vehicle {
         PercentFull::new(soc)
     }
 
+    fn unplug_at_soc(&self) -> PercentFull {
+        if self.unplug_at.watt_hours <= 1.0 {
+            return PercentFull(0);
+        }
+        let soc = self.unplug_at.watt_hours / self.spec.battery_max.watt_hours * 100.0;
+        PercentFull::new(soc)
+    }
 
     /// Returns the next charge request- None if wants to unplug
     fn get_next_power_request(&mut self, charger_available: Power) -> Option<Power> {
         if self.current_charge >= self.unplug_at {
-           return None; 
+            return None;
         }
         let soc = self.soc();
-        Some(self.spec.charge_curve.power_at(soc).min(charger_available).max(Power::from_kw(5.0)))
+        Some(
+            self.spec
+                .charge_curve
+                .power_at(soc)
+                .min(charger_available)
+                .max(Power::from_kw(5.0)),
+        )
     }
 
     // Charges the battery and returns the amount of energy added
@@ -344,13 +409,13 @@ enum LoadSharingStrategy {
     None,
     /// Share power evenly throughout the given plugs
     /// for ex 300kw -> 2 plugs = 150 kw per plug.
-    Even {
+    Paired {
         number_of_plugs: u32,
     },
     /// Same as Even, but with the option to load share
     /// for ex: 250kw -> 4 plugs = 125 max per plug, but 62.5kw if the adjacent plug is utilized
     Split {
-        number_of_plugs: u32
+        number_of_plugs: u32,
     },
     /// Load sharing where the power can be sent to any charger in the given power step
     /// still limited to max power per plug
@@ -362,9 +427,17 @@ enum LoadSharingStrategy {
 }
 
 #[component]
-fn VehiclePicker(#[prop(into)] current_vehicle: Signal<Option<&'static VehicleSpec>>, #[prop(into)] set_vehicle: SignalSetter<Option<&'static VehicleSpec>>) -> impl IntoView {
-    let vehicles = create_rw_signal(VEHICLES.into_iter().map(|vehicle_spec| vehicle_spec).collect::<Vec<_>>());
-    view!{
+fn VehiclePicker(
+    #[prop(into)] current_vehicle: Signal<Option<&'static VehicleSpec>>,
+    #[prop(into)] set_vehicle: SignalSetter<Option<&'static VehicleSpec>>,
+) -> impl IntoView {
+    let vehicles = create_rw_signal(
+        VEHICLES
+            .into_iter()
+            .map(|vehicle_spec| vehicle_spec)
+            .collect::<Vec<_>>(),
+    );
+    view! {
         <Select items=vehicles.into() as_label=move |v| v.name.to_string() choice=current_vehicle set_choice=set_vehicle let:vehicle>
             <div class="flex flex-row gap-2">
                 <span>{vehicle.battery_max.to_string()}</span>
@@ -378,22 +451,51 @@ fn VehiclePicker(#[prop(into)] current_vehicle: Signal<Option<&'static VehicleSp
 #[component]
 fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
     let (vehicle_spec, set_vehicle_spec) = create_signal(None);
-    let specs = create_memo(move |_| vehicle_spec().map(|spec: &VehicleSpec| *spec).unwrap_or_default());
-    view!{
+    let specs = create_memo(move |_| {
+        vehicle_spec()
+            .map(|spec: &VehicleSpec| *spec)
+            .unwrap_or_default()
+    });
+    let (start_energy, set_start_energy) = create_signal(PercentFull::new(10.0));
+    let (unplug_at, set_unplug_at) = create_signal(PercentFull::new(80.0));
+    view! {
         <div class="flex flex-col">
                 <h4 class="text-xl">"Vehicle:"</h4>
                 <div class="flex flex-row gap-1">
                     <VehiclePicker current_vehicle=vehicle_spec set_vehicle=set_vehicle_spec />
                     <div class="flex flex-col" class:collapse=move || vehicle_spec.with(|spec| spec.is_none())>
-                            <span>{move || specs().name.to_string()}</span>
-                            <span>"battery capacity: "{move || specs().battery_max.to_string()}</span>
-                            <span>"average charge speed: "{move || specs().charge_curve.average_power().to_string()}</span>
-                            <span>"average 10->80% charge speed: "{move || specs().charge_curve.percent_to_percent(PercentFull::new(10.0), PercentFull::new(80.0)).average_power().to_string()}</span>
+                        <span>{move || specs().name.to_string()}</span>
+                        <span>"battery capacity: "{move || specs().battery_max.to_string()}</span>
+                        <span>"average charge speed: "{move || specs().charge_curve.average_power().to_string()}</span>
+                        <span>"average 10->80% charge speed: "{move || specs().charge_curve.percent_to_percent(PercentFull::new(10.0), PercentFull::new(80.0)).average_power().to_string()}</span>
                     </div>
+                    <div class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
+                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Charge start battery%: "{move || start_energy().to_string()}" "{move || (start_energy() * specs().battery_max).to_string()}</label>
+                        <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || start_energy().as_float().to_string() on:input=move |e| {
+                            if let Ok(value) = event_target_value(&e).parse() {
+                                if unplug_at.get_untracked().as_float() < value {
+                                    set_unplug_at(PercentFull::new((value + 1.0).min(100.0)));
+                                }
+                                set_start_energy(PercentFull::new(value));
+                            }
+                        }/>
+                    </div>
+                    <div class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
+                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Unplug at Battery SOC%: "{move || unplug_at().to_string()}" "{move || (unplug_at() * specs().battery_max).to_string()}</label>
+                        <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || unplug_at().as_float().to_string() on:input=move |e| {
+                            if let Ok(value) = event_target_value(&e).parse() {
+                                if start_energy.get_untracked().as_float() > value {
+                                    set_start_energy(PercentFull::new((value - 1.0).max(0.0)));
+                                }
+                                set_unplug_at(PercentFull::new(value));
+                            }
+                        }/>
+                    </div>
+
                     <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-neutral-600 p-1 border border-neutral-500 hover:bg-neutral-700 rounded h-7"
                         on:click=move |_| {
                             if let Some(current) = vehicle_spec.get_untracked() {
-                                vehicles.update(|v| v.push(Vehicle::new(*current, Energy::from_kwh(0.0), current.battery_max)));
+                                vehicles.update(|v| v.push(Vehicle::new(*current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max)));
                                 set_vehicle_spec(None);
                             }
                         }>
@@ -406,14 +508,14 @@ fn VehicleChooser(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
 
 #[component]
 fn VehicleList(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
-    view ! {
+    view! {
         <div class="flex flex-col" class:collapse=move || vehicles.with(|v| v.is_empty())>
             <h2 class="text-xl">"Vehicles:"</h2>
             <ul class="list-disc">
             <For each={move || vehicles().into_iter().enumerate()}
                 key=|(i, _v)| *i
                 let:vehicle>
-                <li>{vehicle.1.spec.name} {vehicle.1.soc().to_string()} {vehicle.1.unplug_at.to_string()} <button class="bg-red-600 rounded w-10 border border-neutral-500">"X"</button></li>
+                <li>{vehicle.1.spec.name}" " {vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()} <button class="bg-red-600 rounded w-10 border border-neutral-500" on:click=move |_| vehicles.update(|v| { v.remove(vehicle.0);})>"X"</button></li>
             </For>
             </ul>
         </div>
@@ -424,46 +526,50 @@ fn VehicleList(vehicles: RwSignal<Vec<Vehicle>>) -> impl IntoView {
 fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
     let (grid_connection, set_grid_connection) = create_signal(Power::from_kw(600.0));
     let load_share = create_rw_signal(LoadSharingStrategy::None);
-    let (number_of_plugs, set_number_of_plugs) = create_slice(load_share, move |strategy| {
-        match strategy {
+    let (number_of_plugs, set_number_of_plugs) = create_slice(
+        load_share,
+        move |strategy| match strategy {
             LoadSharingStrategy::None => None,
-            LoadSharingStrategy::Even { number_of_plugs } => Some(*number_of_plugs),
+            LoadSharingStrategy::Paired { number_of_plugs } => Some(*number_of_plugs),
             LoadSharingStrategy::Split { number_of_plugs } => Some(*number_of_plugs),
-            LoadSharingStrategy::Granular { number_of_plugs, ..} => Some(*number_of_plugs),
-        }
-    }, move |strategy, plugs| match strategy {
-        LoadSharingStrategy::None => {},
-        LoadSharingStrategy::Even { number_of_plugs } => *number_of_plugs = plugs,
-        LoadSharingStrategy::Split { number_of_plugs } => *number_of_plugs = plugs,
-        LoadSharingStrategy::Granular { number_of_plugs, .. } => {
-            *number_of_plugs = plugs
+            LoadSharingStrategy::Granular {
+                number_of_plugs, ..
+            } => Some(*number_of_plugs),
         },
-    });
-    let (power_step, set_power_step) = create_slice(load_share, move |strategy| {
-        match strategy {
+        move |strategy, plugs| match strategy {
+            LoadSharingStrategy::None => {}
+            LoadSharingStrategy::Paired { number_of_plugs } => *number_of_plugs = plugs,
+            LoadSharingStrategy::Split { number_of_plugs } => *number_of_plugs = plugs,
+            LoadSharingStrategy::Granular {
+                number_of_plugs, ..
+            } => *number_of_plugs = plugs,
+        },
+    );
+    let (power_step, set_power_step) = create_slice(
+        load_share,
+        move |strategy| match strategy {
             LoadSharingStrategy::Granular { power_step, .. } => Some(*power_step),
             _ => None,
-        }
-    }, move |strategy, step| match strategy {
-        LoadSharingStrategy::Granular { power_step, .. } => {
-            *power_step = step
         },
-        _ => {}
-    });
-    let (max_per_plug, set_max_per_plug) = create_slice(load_share, move |strategy| {
-        match strategy {
+        move |strategy, step| match strategy {
+            LoadSharingStrategy::Granular { power_step, .. } => *power_step = step,
+            _ => {}
+        },
+    );
+    let (max_per_plug, set_max_per_plug) = create_slice(
+        load_share,
+        move |strategy| match strategy {
             LoadSharingStrategy::Granular { max_per_plug, .. } => Some(*max_per_plug),
             _ => None,
-        }
-    }, move |strategy, per_plug| match strategy {
-        LoadSharingStrategy::Granular { max_per_plug, .. } => {
-            *max_per_plug = per_plug
         },
-        _ => {}
-    });
+        move |strategy, per_plug| match strategy {
+            LoadSharingStrategy::Granular { max_per_plug, .. } => *max_per_plug = per_plug,
+            _ => {}
+        },
+    );
     let btn_active = "rounded-sm bg-neutral-800 p-1 border border-neutral-600";
     let btn_inactive = "rounded-sm bg-neutral-700 p-1 border border-neutral-600";
-    view!{
+    view! {
         <div class="flex flex-col">
                 <h4 class="text-xl">"Charger: "</h4>
                 <div class="grid grid-cols-2">
@@ -471,7 +577,7 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                         "Grid Connection: "{move || grid_connection().to_string()}
                     </div>
                     <div>
-                        <input class="dark:bg-neutral-800 w-36" value=move || grid_connection().as_kw() on:input=move |e| {
+                        <input class="dark:bg-neutral-800 w-36" value=grid_connection.get_untracked().as_kw() on:input=move |e| {
                             if let Ok(kwh) = event_target_value(&e).parse::<f64>() {
                                 set_grid_connection(Power::from_kw(kwh));
                             }
@@ -480,15 +586,15 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                     <div class="col-span-2 gap-1">
                         "Load sharing strategy:"
                         <button class=move || if matches!(load_share(), LoadSharingStrategy::None) { btn_active } else { btn_inactive  } on:click=move |_| load_share.set(LoadSharingStrategy::None)>"None"</button>
-                        <button class=move || if matches!(load_share(), LoadSharingStrategy::Even { .. }) { btn_active } else { btn_inactive  } on:click=move |_| load_share.set(LoadSharingStrategy::Even {
+                        <button class=move || if matches!(load_share(), LoadSharingStrategy::Paired { .. }) { btn_active } else { btn_inactive  } on:click=move |_| load_share.set(LoadSharingStrategy::Paired {
                             number_of_plugs: 2
                         })>"Even"</button>
                         <button class=move || if matches!(load_share(), LoadSharingStrategy::Split { .. }) { btn_active } else { btn_inactive  } on:click=move |_| load_share.set(LoadSharingStrategy::Split {
                             number_of_plugs: 2
                         })>"Split"</button>
                         <button class=move || if matches!(load_share(), LoadSharingStrategy::Granular { .. }) { btn_active } else { btn_inactive  }  on:click=move |_| load_share.set(LoadSharingStrategy::Granular {
-                            number_of_plugs: 2,
-                            power_step: Power::from_kw(25.0),
+                            number_of_plugs: 8,
+                            power_step: Power::from_kw(50.0),
                             max_per_plug: Power::from_kw(400.0),
                         })>"Granular"</button>
                         <div class="grid grid-cols-2 gap-1" class:collapse=move || number_of_plugs().is_none()>
@@ -543,7 +649,7 @@ fn ChargerList(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
             key=|(i, _c)| *i
             let:charger>
             <div>
-                {charger.1.grid_connection.to_string()}
+                {charger.1.grid_connection.to_string()}" "
                 {format!("{:?}", charger.1.strategy)}
             </div>
             </For>
@@ -563,7 +669,7 @@ impl ChargingVehicle {
         let soc = self.vehicle.soc();
         let allocated_power = self.allocated_power;
         let spec = self.vehicle.spec;
-        ChargeFrame{
+        ChargeFrame {
             soc,
             allocated_power,
             spec,
@@ -575,7 +681,7 @@ impl ChargingVehicle {
 struct Charger {
     grid_connection: Power,
     strategy: LoadSharingStrategy,
-    currently_charging: Vec<ChargingVehicle>
+    currently_charging: Vec<ChargingVehicle>,
 }
 
 impl Charger {
@@ -588,15 +694,20 @@ impl Charger {
     }
 
     fn add_vehicle(&mut self, vehicle: Vehicle) {
-        self.currently_charging.push(ChargingVehicle { allocated_power: Power::from_kw(0.0), vehicle });
+        self.currently_charging.push(ChargingVehicle {
+            allocated_power: Power::from_kw(0.0),
+            vehicle,
+        });
     }
 
     fn num_plugs(&self) -> u32 {
         match self.strategy {
             LoadSharingStrategy::None => 1,
-            LoadSharingStrategy::Even { number_of_plugs } => number_of_plugs,
+            LoadSharingStrategy::Paired { number_of_plugs } => number_of_plugs,
             LoadSharingStrategy::Split { number_of_plugs } => number_of_plugs,
-            LoadSharingStrategy::Granular { number_of_plugs, .. } => number_of_plugs,
+            LoadSharingStrategy::Granular {
+                number_of_plugs, ..
+            } => number_of_plugs,
         }
     }
 
@@ -606,28 +717,84 @@ impl Charger {
 
     fn update_power_requests(&mut self) {
         match self.strategy {
-            LoadSharingStrategy::None => {
+            LoadSharingStrategy::None => self.currently_charging.retain_mut(|c| {
+                if let Some(next) = c.vehicle.get_next_power_request(self.grid_connection) {
+                    c.allocated_power = next;
+                    true
+                } else {
+                    false
+                }
+            }),
+            LoadSharingStrategy::Paired { number_of_plugs } => {
+                // assume optimal distribution of vehicles
+                let number_boosted_plugs =
+                    (number_of_plugs - self.currently_charging.len() as u32) / 2;
+                let power_per_plug = self.grid_connection / number_of_plugs;
                 self.currently_charging.retain_mut(|c| {
-                    if let Some(next) = c.vehicle.get_next_power_request(self.grid_connection) {
+                    let power = if number_boosted_plugs > 0 {
+                        power_per_plug * 2
+                    } else {
+                        power_per_plug
+                    };
+                    if let Some(next) = c.vehicle.get_next_power_request(power) {
                         c.allocated_power = next;
                         true
                     } else {
                         false
                     }
-                })
-            },
-            LoadSharingStrategy::Even { number_of_plugs } => {
+                });
+            }
+            LoadSharingStrategy::Split { number_of_plugs } => {
                 let power_per_plug = self.grid_connection / number_of_plugs;
-                
-                todo!()
-            },
-            LoadSharingStrategy::Split { number_of_plugs } => todo!(),
-            LoadSharingStrategy::Granular { power_step, number_of_plugs, max_per_plug } => todo!(),
+                self.currently_charging.retain_mut(|c| {
+                    if let Some(next) = c.vehicle.get_next_power_request(power_per_plug) {
+                        c.allocated_power = next;
+                        true
+                    } else {
+                        false
+                    }
+                });
+            }
+            LoadSharingStrategy::Granular {
+                power_step,
+                max_per_plug,
+                ..
+            } => {
+                let mut allocated_power = self
+                    .currently_charging
+                    .iter()
+                    .map(|c| power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil())
+                    .sum::<Power>();
+                let total_power = self.grid_connection;
+                self.currently_charging.retain_mut(|c| {
+                    if let Some(power) = c
+                        .vehicle
+                        .get_next_power_request((total_power - allocated_power).min(max_per_plug))
+                    {
+                        let previous_rounded_power =
+                            power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil();
+                        let current_rounded_power =
+                            power_step * (power.as_kw() / power_step.as_kw()).ceil();
+                        // 250 += 300 - 250 = 300
+                        allocated_power += current_rounded_power - previous_rounded_power;
+                        c.allocated_power = power;
+                        true
+                    } else {
+                        // return our power to the pool
+                        allocated_power +=
+                            power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil();
+                        false
+                    }
+                });
+            }
         }
     }
 
     fn charge_vehicles(&mut self, dt: Duration) -> Energy {
-        self.currently_charging.iter_mut().map(|vehicle| vehicle.vehicle.charge(vehicle.allocated_power, dt)).sum()
+        self.currently_charging
+            .iter_mut()
+            .map(|vehicle| vehicle.vehicle.charge(vehicle.allocated_power, dt))
+            .sum()
     }
 }
 
@@ -660,7 +827,7 @@ impl Sim {
         // start charging any vehicles we can
         if !self.vehicles.is_empty() {
             for charger in self.chargers.iter_mut().filter(|c| c.has_free_plug()) {
-                while charger.has_free_plug() && !self.vehicles.is_empty(){ 
+                while charger.has_free_plug() && !self.vehicles.is_empty() {
                     charger.add_vehicle(self.vehicles.pop().unwrap());
                 }
             }
@@ -669,13 +836,25 @@ impl Sim {
         for charger in &mut self.chargers {
             charger.update_power_requests();
         }
-        let energy_dispensed = self.chargers.iter_mut().map(|c| c.charge_vehicles(self.simulation_step_time)).sum::<Energy>();
+        let energy_dispensed = self
+            .chargers
+            .iter_mut()
+            .map(|c| c.charge_vehicles(self.simulation_step_time))
+            .sum::<Energy>();
         self.simulation_time += self.simulation_step_time;
         SimFrame {
             energy_dispensed,
-            vehicles_charging: self.chargers.iter().flat_map(|c| c.currently_charging.iter().map(|c| c.summary())).collect(),
-            plugs_unused: self.chargers.iter().map(|c| c.num_plugs() - c.currently_charging.len() as u32).sum(),
-            duration: self.simulation_time
+            vehicles_charging: self
+                .chargers
+                .iter()
+                .flat_map(|c| c.currently_charging.iter().map(|c| c.summary()))
+                .collect(),
+            plugs_unused: self
+                .chargers
+                .iter()
+                .map(|c| c.num_plugs() - c.currently_charging.len() as u32)
+                .sum(),
+            duration: self.simulation_time,
         }
     }
 
@@ -684,27 +863,47 @@ impl Sim {
     }
 
     fn is_done(&self) -> bool {
-        self.vehicles.is_empty() && self.chargers.iter().all(|c| c.currently_charging.is_empty())
+        self.vehicles.is_empty()
+            && self
+                .chargers
+                .iter()
+                .all(|c| c.currently_charging.is_empty())
     }
 }
 
 #[component]
-fn Simulation(vehicles: RwSignal<Vec<Vehicle>>, chargers: RwSignal<Vec<Charger>>, sim_step: ReadSignal<Duration>) -> impl IntoView {
-    {move || {
-        let v = vehicles();
-        let c = chargers();
-        let simulation_step_time = sim_step();
-        let mut sim = Sim { vehicles: v, chargers: c, simulation_step_time, simulation_time: Duration::default() };
-        let mut steps = vec![];
-        if sim.is_valid() {
-            while !sim.is_done() {
-                steps.push(sim.step());
-            }
-            view!{
+fn Simulation(
+    vehicles: RwSignal<Vec<Vehicle>>,
+    chargers: RwSignal<Vec<Charger>>,
+    sim_step: ReadSignal<Duration>,
+) -> impl IntoView {
+    {
+        move || {
+            let v = vehicles();
+            let c = chargers();
+            let simulation_step_time = sim_step();
+            let mut sim = Sim {
+                vehicles: v,
+                chargers: c,
+                simulation_step_time,
+                simulation_time: Duration::default(),
+            };
+            let mut steps = vec![];
+            if sim.is_valid() {
+                while !sim.is_done() {
+                    steps.push(sim.step());
+                }
+                let total_energy_dispensed =
+                    steps.iter().map(|s| s.energy_dispensed).sum::<Energy>();
+                let total_time_spent = steps.last().map(|s| s.duration).unwrap_or_default();
+                view!{
+                <div class="flex flex-col">
+                <div>"energy dispensed: "{total_energy_dispensed.to_string()}</div><div>"minutes running: "{total_time_spent.as_secs()/60}</div><div>"----"</div>
+                <div>{vehicles.with(|v| v.len())}" vehicles"</div><div>{chargers.with(|c| c.len())}" chargers"</div><div>{simulation_step_time.as_secs().to_string()}"s step time"</div><div></div>
+                </div>
                 <div class="grid grid-cols-4">
-                    <div>{vehicles.with(|v| v.len())}" vehicles"</div><div>{chargers.with(|c| c.len())}" chargers"</div><div>{simulation_step_time.as_secs().to_string()}"s step time"</div><div></div>
                     <div>"minutes"</div><div>"energy dispensed"</div><div>"vehicles charging"</div><div>"plugs unused"</div>
-                    {steps.into_iter().map(|s| view!{ 
+                    {steps.into_iter().map(|s| view!{
                         <div>{format!("{:.2}", s.duration.as_secs_f64() / 60.0)}</div>
                         <div>{s.energy_dispensed.to_string()}</div>
                         <div>{s.vehicles_charging.len()}" total"
@@ -716,18 +915,18 @@ fn Simulation(vehicles: RwSignal<Vec<Vehicle>>, chargers: RwSignal<Vec<Charger>>
                     }).collect_view()}
                 </div>
             }.into_view()
-        } else {
-            view!{ "Add chargers and vehicles to get started" }.into_view()
+            } else {
+                view! { "Add chargers and vehicles to get started" }.into_view()
+            }
         }
-    }}
+    }
 }
 
 #[component]
 pub fn VehicleSim() -> impl IntoView {
-    
     let vehicles = create_rw_signal(vec![]);
     let chargers = create_rw_signal(vec![]);
-    let (simulation_time, _) = create_signal(Duration::from_secs(1));
+    let (simulation_time, _) = create_signal(Duration::from_secs(15));
     view! {
         <div class="flex flex-col gap-2">
             <div class="flex flex-col gap-1">

@@ -4,7 +4,7 @@ use leptos::{
 };
 #[cfg(feature = "hydrate")]
 use leptos_use::use_element_hover;
-use sublime_fuzzy::{Scoring, FuzzySearch, Match};
+use sublime_fuzzy::{FuzzySearch, Match, Scoring};
 
 use super::MatchFormatter;
 pub(crate) fn fuzzy_search(query: &str, target: &str) -> Option<Match> {
@@ -14,8 +14,6 @@ pub(crate) fn fuzzy_search(query: &str, target: &str) -> Option<Match> {
         .score_with(&scoring);
     search.best_match()
 }
-
-
 
 #[component]
 pub fn Select<T, EF, N, L>(

@@ -6,7 +6,13 @@ mod pictures;
 mod projects;
 mod toys;
 
-use crate::{blog::*, home_page::*, pictures::*, projects::*, toys::{ToyPage, VehicleSim}};
+use crate::{
+    blog::*,
+    home_page::*,
+    pictures::*,
+    projects::*,
+    toys::{ToyPage, VehicleSim},
+};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
