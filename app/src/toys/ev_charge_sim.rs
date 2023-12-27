@@ -1,6 +1,7 @@
 use const_soft_float::soft_f64::SoftF64;
 use itertools::Itertools;
 use leptos::*;
+use leptos_meta::Title;
 use log::info;
 use std::{
     collections::VecDeque,
@@ -9,7 +10,6 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Sub},
     time::Duration,
 };
-use leptos_meta::Title;
 
 // class="collapse"
 
@@ -542,7 +542,7 @@ fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
                         }/>
                     </div>
 
-                    <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-gray-600 p-1 border border-gray-500 hover:bg-gray-700 rounded h-7"
+                    <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-gray-300 dark:bg-gray-600 p-1 border border-gra-300 dark:border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded h-7"
                         on:click=move |_| {
                             if let Some(current) = vehicle_spec.get_untracked() {
                                 vehicles.update(|v| v.push_back(Vehicle::new(*current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max)));
@@ -617,8 +617,8 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
             _ => {}
         },
     );
-    let btn_active = "rounded-sm bg-gray-800 p-1 border border-gray-600";
-    let btn_inactive = "rounded-sm bg-gray-700 hover:bg-gray-600 p-1 border border-gray-600";
+    let btn_active = "rounded-sm bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-600";
+    let btn_inactive = "rounded-sm bg-gray-400 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-1 border border-gray-300 dark:border-gray-600";
     view! {
         <div class="flex flex-col">
                 <h4 class="text-xl">"Charger: "</h4>
@@ -627,7 +627,7 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                         "Grid Connection: "{move || grid_connection().to_string()}
                     </div>
                     <div>
-                        <input class="dark:bg-gray-800 hover:bg-gray-700 active:bg-gray-700 w-36" value=grid_connection.get_untracked().as_kw() on:input=move |e| {
+                        <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36" value=grid_connection.get_untracked().as_kw() on:input=move |e| {
                             if let Ok(kwh) = event_target_value(&e).parse::<f64>() {
                                 set_grid_connection(Power::from_kw(kwh));
                             }
@@ -652,7 +652,7 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                                 "Number of plugs:"
                                 {move || number_of_plugs().unwrap_or(1)}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-700 active:bg-gray-700 w-36 shrink" prop:value=move || number_of_plugs().unwrap_or_default() on:input=move |e| {
+                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || number_of_plugs().unwrap_or_default() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_number_of_plugs(value);
                                 }
@@ -664,7 +664,7 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                                 "Power step:"
                                 {move || power_step().unwrap_or(Power::from_kw(1.0)).to_string()}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-700 active:bg-gray-700 w-36 shrink" prop:value=move || power_step().unwrap_or_default().as_kw() on:input=move |e| {
+                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || power_step().unwrap_or_default().as_kw() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_power_step(Power::from_kw(value));
                                 }
@@ -673,14 +673,14 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                                 "Max per plug:"
                                 {move || max_per_plug().unwrap_or(Power::from_kw(1.0)).to_string()}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-700 active:bg-gray-700 w-36 shrink" prop:value=move || max_per_plug().unwrap_or_default().as_kw() on:input=move |e| {
+                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || max_per_plug().unwrap_or_default().as_kw() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_max_per_plug(Power::from_kw(value));
                                 }
                             }/>
                         </div>
                     </div>
-                    <button class="bg-gray-600 hover:bg-gray-500" on:click=move |_| {
+                    <button class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500" on:click=move |_| {
                         let strategy = load_share.get_untracked();
                         chargers.update(|u| u.push(Charger::new(grid_connection.get_untracked(), strategy)));
                         load_share.set(LoadSharingStrategy::None);
