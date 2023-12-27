@@ -34,7 +34,7 @@ pub fn App() -> impl IntoView {
         // content for this welcome page
         <Router>
             <div class="container mx-auto px-4">
-                <nav class="p-4 flex flex-row align-items-middle justify-items-stretch gap-4">
+                <nav class="p-4 flex flex-row align-items-middle justify-items-stretch gap-4 flex-wrap">
                     <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="/" exact=true>"home"</A>
                     <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="blog">"blog"</A>
                     <A class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="projects">"projects"</A>

@@ -512,7 +512,7 @@ fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
     view! {
         <div class="flex flex-col">
                 <h4 class="text-xl">"Vehicle:"</h4>
-                <div class="flex flex-row gap-1">
+                <div class="flex flex-col xl:flex-row gap-1">
                     <VehiclePicker current_vehicle=vehicle_spec set_vehicle=set_vehicle_spec />
                     <div class="flex flex-col" class:invisible=move || vehicle_spec.with(|spec| spec.is_none())>
                         <span>"battery capacity: "{move || specs().battery_max.to_string()}</span>
@@ -617,7 +617,8 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
             _ => {}
         },
     );
-    let btn_active = "rounded-sm bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-600";
+    let btn_active =
+        "rounded-sm bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-600";
     let btn_inactive = "rounded-sm bg-gray-400 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-1 border border-gray-300 dark:border-gray-600";
     view! {
         <div class="flex flex-col">
