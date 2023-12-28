@@ -2,6 +2,7 @@ use const_soft_float::soft_f64::SoftF64;
 use itertools::Itertools;
 use leptos::*;
 use leptos_meta::{Script, Title};
+use leptos_use::use_preferred_dark;
 use log::info;
 use std::{
     borrow::Cow,
@@ -744,6 +745,7 @@ fn ChargerList(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
 
 #[component]
 fn ChargeCurve(#[prop(into)] spec: Signal<Option<&'static VehicleSpec>>) -> impl IntoView {
+    let dark_mode = use_preferred_dark();
     create_effect(move |_| {
         if let Some(spec) = spec() {
             #[cfg(feature = "hydrate")]
@@ -780,22 +782,25 @@ fn ChargeCurve(#[prop(into)] spec: Signal<Option<&'static VehicleSpec>>) -> impl
                         Line::new()
                             .name(spec.name)
                             .data(points)
-                            .smooth(0.1)
+                            .smooth(0.5)
                             .show_symbol(false),
                     )
                     .legend(Legend::new());
                 let html = WasmRenderer::new(720, 400);
                 info!("rendering chart?");
-                html.theme(charming::theme::Theme::Dark)
-                    .render("chargecurve", &chart)
-                    .unwrap();
+                html.theme(match dark_mode() {
+                    true => charming::theme::Theme::Dark,
+                    false => charming::theme::Theme::Chalk,
+                })
+                .render("chargecurve", &chart)
+                .unwrap();
             }
         }
     });
     view! {
         <Script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></Script>
         <Script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></Script>
-        <div class:invisible=move || spec().is_none() id="chargecurve"></div>
+        {move || { let _ = dark_mode(); view!{ <div class:invisible=move || spec().is_none() id="chargecurve"></div> }}}
     }
 }
 
@@ -1037,7 +1042,7 @@ impl Sim {
     }
 
     fn is_valid(&self) -> bool {
-        !self.chargers.is_empty()
+        !self.chargers.is_empty() && !self.vehicles.is_empty()
     }
 
     fn is_done(&self) -> bool {
@@ -1092,20 +1097,17 @@ fn get_charge_data_from_vehicles(
     for sim_frame in data {
         let time_mins = sim_frame.duration.as_secs_f64() / 60.0;
         for vehicle_frame in &sim_frame.vehicles_charging {
-            vehicles[vehicle_frame.vehicle_id].data.push(vec![
-                time_mins,
-                vehicle_frame.allocated_power.as_kw(),
-            ]);
+            vehicles[vehicle_frame.vehicle_id]
+                .data
+                .push(vec![time_mins, vehicle_frame.allocated_power.as_kw()]);
         }
         for charger in &sim_frame.chargers {
-            chargers[charger.charger_id].used_power.push(vec![
-                time_mins,
-                charger.active_power.as_kw(),
-            ]);
-            chargers[charger.charger_id].unused_power.push(vec![
-                time_mins,
-                charger.unused_power.as_kw(),
-            ]);
+            chargers[charger.charger_id]
+                .used_power
+                .push(vec![time_mins, charger.active_power.as_kw()]);
+            chargers[charger.charger_id]
+                .unused_power
+                .push(vec![time_mins, charger.unused_power.as_kw()]);
         }
     }
     (vehicles, chargers)
@@ -1115,9 +1117,15 @@ fn get_charge_data_from_vehicles(
 fn SimulationChart(
     vehicles: Signal<Vec<&'static VehicleSpec>>,
     data: Signal<Vec<SimFrame>>,
+    prefers_dark: Signal<bool>,
 ) -> impl IntoView {
     create_effect(move |_| {
         let vehicles = vehicles();
+        let prefers_dark = prefers_dark();
+        if data.with(|d| d.is_empty()) {
+            return;
+        }
+
         let (vehicle_curves, chargers) =
             data.with(|sim_data| get_charge_data_from_vehicles(vehicles, sim_data));
         #[cfg(feature = "hydrate")]
@@ -1128,7 +1136,6 @@ fn SimulationChart(
                 series::Line,
                 WasmRenderer,
             };
-
             let mut chart = charming::Chart::new()
                 .title(Title::new().text("Charging data"))
                 .x_axis(
@@ -1161,7 +1168,7 @@ fn SimulationChart(
                     Line::new()
                         .name(format!("#{} {}", id + 1, spec.name))
                         .data(data)
-                        .smooth(0.1)
+                        .smooth(0.5)
                         .show_symbol(false),
                 );
             }
@@ -1173,7 +1180,7 @@ fn SimulationChart(
                     Line::new()
                         .name(format!("#{} charger unused power", id + 1))
                         .data(unused_power)
-                        .smooth(0.1)
+                        .smooth(0.5)
                         .show_symbol(false),
                 );
             }
@@ -1186,19 +1193,23 @@ fn SimulationChart(
                 Line::new()
                     .name("Energy Dispensed (kwH)")
                     .data(energy_dispensed)
-                    .smooth(0.1)
+                    .smooth(0.5)
                     .show_symbol(false),
             );
 
             let html = WasmRenderer::new(1080, 500);
             info!("rendering chart?");
-            html.theme(charming::theme::Theme::Dark)
-                .render("simchart", &chart)
-                .unwrap();
+            html.theme(match prefers_dark {
+                true => charming::theme::Theme::Dark,
+                false => charming::theme::Theme::Chalk,
+            })
+            .render("simchart", &chart)
+            .unwrap();
         }
     });
-    view! {
-        <div class="w-full" class:invisible=move || data.with(|d| d.is_empty()) id="simchart"></div>
+    move || {
+        prefers_dark();
+        view! { <div class="w-full" class:invisible=move || data.with(|d| d.is_empty()) id="simchart"></div> }
     }
 }
 
@@ -1208,6 +1219,7 @@ fn Simulation(
     chargers: RwSignal<Vec<Charger>>,
     sim_step: ReadSignal<Duration>,
 ) -> impl IntoView {
+    let prefers_dark = leptos_use::use_preferred_dark();
     {
         move || {
             let v = vehicles();
@@ -1231,7 +1243,7 @@ fn Simulation(
                 let total_time_spent = steps.last().map(|s| s.duration).unwrap_or_default();
                 let (steps_signal, _) = create_signal(steps.clone());
                 view!{
-                    <SimulationChart vehicles=vehicles_signal.into() data=steps_signal.into()  />
+                    <SimulationChart vehicles=vehicles_signal.into() data=steps_signal.into() prefers_dark />
                 <div class="flex flex-col">
                     <div>"energy dispensed: "{total_energy_dispensed.to_string()}</div>
                     <div>"minutes running: "{total_time_spent.as_secs()/60}</div>

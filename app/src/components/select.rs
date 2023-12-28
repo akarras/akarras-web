@@ -70,7 +70,7 @@ where
         <div class="relative">
             <input node_ref=input
                 class:cursor=move || !has_focus()
-                class="p-2 rounded-md bg-gray-200 dark:bg-gray-900 border-solid border-1 border-neutral-600 w-96 hover:bg-gray-300 dark:hover:bg-gray-700 hogver:border-neutral-50 dark:hover:border-neutral-950"
+                class="p-2 rounded-md bg-gray-200 dark:bg-gray-800 border-solid border border-gray-500 w-96 hover:bg-gray-300 dark:hover:bg-gray-700 hover:border-neutral-400 dark:hover:border-neutral-600"
                 on:focus=move |_| set_focused(true)
                 on:focusout=move |_| set_focused(false)
                 on:input=move |e| { set_current_input(event_target_value(&e)); }
