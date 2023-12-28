@@ -1,17 +1,23 @@
+use base64::{engine::general_purpose, Engine};
 use const_soft_float::soft_f64::SoftF64;
+use flate2::{read::DeflateDecoder, write::DeflateEncoder, Compression};
 use itertools::Itertools;
 use leptos::*;
 use leptos_meta::{Script, Title};
+use leptos_router::{use_location, use_navigate, NavigateOptions};
 use leptos_use::use_preferred_dark;
 use log::info;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     collections::VecDeque,
     fmt::Display,
+    io::{Cursor, Read, Write},
     iter::{self, Sum},
     ops::{Add, AddAssign, Div, Mul, Sub},
     time::Duration,
 };
+use thiserror::Error;
 
 // class="collapse"
 
@@ -70,7 +76,7 @@ impl Mul<Energy> for PercentFull {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 struct Energy {
     watt_hours: f64,
 }
@@ -120,7 +126,7 @@ impl Sum for Energy {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 struct Power {
     watts: i32,
 }
@@ -359,28 +365,70 @@ struct VehicleSpec {
 
 impl Eq for VehicleSpec {}
 
-#[derive(Clone)]
-struct Vehicle {
-    spec: &'static VehicleSpec,
-    current_charge: Energy,
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+struct SpecKey {
+    name: Cow<'static, str>,
+}
 
+#[derive(Debug, Error)]
+enum VehicleLookupError {
+    #[error("Unable to find vehicle by name {0}")]
+    NotFound(Cow<'static, str>),
+}
+
+impl TryFrom<&SpecKey> for &'static VehicleSpec {
+    type Error = VehicleLookupError;
+
+    fn try_from(value: &SpecKey) -> Result<Self, Self::Error> {
+        VEHICLES
+            .into_iter()
+            .find(|v| v.name == value.name)
+            .ok_or_else(|| VehicleLookupError::NotFound(value.name.clone()))
+    }
+}
+
+impl From<&'static VehicleSpec> for SpecKey {
+    fn from(value: &'static VehicleSpec) -> Self {
+        Self {
+            name: Cow::Borrowed(value.name),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+struct Vehicle {
+    spec: SpecKey,
+    current_charge: Energy,
     unplug_at: Energy,
 }
 
 impl Vehicle {
     fn new(spec: &'static VehicleSpec, state_of_charge: Energy, unplug_at: Energy) -> Vehicle {
         Vehicle {
-            spec,
+            spec: spec.into(),
             current_charge: state_of_charge,
             unplug_at,
         }
+    }
+
+    fn spec_details(&self) -> &'static VehicleSpec {
+        static DEFAULT: VehicleSpec = VehicleSpec {
+            name: "",
+            battery_max: Energy::from_kwh(0.0),
+            charge_curve: ChargeCurve {
+                data_points: Cow::Borrowed(&[]),
+            },
+            epa_miles: SoftF64(0.0).to_f64(),
+        };
+        self.spec.borrow().try_into().ok().unwrap_or(&DEFAULT)
     }
 
     fn soc(&self) -> PercentFull {
         if self.current_charge.watt_hours <= 1.0 {
             return PercentFull(0);
         }
-        let soc = self.current_charge.watt_hours / self.spec.battery_max.watt_hours * 100.0;
+        let soc =
+            self.current_charge.watt_hours / self.spec_details().battery_max.watt_hours * 100.0;
         PercentFull::new(soc)
     }
 
@@ -388,7 +436,7 @@ impl Vehicle {
         if self.unplug_at.watt_hours <= 1.0 {
             return PercentFull(0);
         }
-        let soc = self.unplug_at.watt_hours / self.spec.battery_max.watt_hours * 100.0;
+        let soc = self.unplug_at.watt_hours / self.spec_details().battery_max.watt_hours * 100.0;
         PercentFull::new(soc)
     }
 
@@ -399,7 +447,7 @@ impl Vehicle {
         }
         let soc = self.soc();
         Some(
-            self.spec
+            self.spec_details()
                 .charge_curve
                 .power_at(soc)
                 .min(charger_available)
@@ -487,7 +535,7 @@ static VEHICLES: &'static [VehicleSpec] = &[
     },
 ];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 enum LoadSharingStrategy {
     None,
     /// Share power evenly throughout the given plugs
@@ -532,7 +580,10 @@ fn VehicleDropdown(
 }
 
 #[component]
-fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
+fn VehicleChooser(
+    #[prop(into)] vehicles: Signal<VecDeque<Vehicle>>,
+    set_vehicles: SignalSetter<VecDeque<Vehicle>>,
+) -> impl IntoView {
     let (vehicle_spec, set_vehicle_spec) = create_signal::<Option<&'static VehicleSpec>>(None);
     let specs = create_memo(move |_| {
         vehicle_spec()
@@ -576,7 +627,9 @@ fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
                     <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                         on:click=move |_| {
                             if let Some(current) = vehicle_spec.get_untracked() {
-                                vehicles.update(|v| v.push_back(Vehicle::new(current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max)));
+                                let mut vehicles = vehicles();
+                                vehicles.push_back(Vehicle::new(current, start_energy.get_untracked() * current.battery_max, unplug_at.get_untracked() * current.battery_max));
+                                set_vehicles(vehicles);
                                 set_vehicle_spec(None);
                             }
                         }>
@@ -589,15 +642,18 @@ fn VehicleChooser(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
 }
 
 #[component]
-fn VehicleList(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
+fn VehicleList(
+    #[prop(into)] vehicles: Signal<VecDeque<Vehicle>>,
+    set_vehicles: SignalSetter<VecDeque<Vehicle>>,
+) -> impl IntoView {
     view! {
         <div class="flex flex-col" class:collapse=move || vehicles.with(|v| v.is_empty())>
             <h2 class="text-xl">"Vehicles:"</h2>
             <ul class="list-disc">
             <For each={move || vehicles().into_iter().enumerate()}
-                key=|(i, v)| (*i, v.spec.name)
+                key=|(i, v)| (*i, v.spec_details().name)
                 let:vehicle>
-                <li>{vehicle.1.spec.name}" " {vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()} <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| vehicles.update(|v| { v.remove(vehicle.0);})>"X"</button></li>
+                <li>{vehicle.1.spec.name.clone()}" " {vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()} <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| { let mut vehicles = vehicles(); vehicles.remove(vehicle.0); set_vehicles(vehicles); }>"X"</button></li>
             </For>
             </ul>
         </div>
@@ -605,7 +661,10 @@ fn VehicleList(vehicles: RwSignal<VecDeque<Vehicle>>) -> impl IntoView {
 }
 
 #[component]
-fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
+fn ChargerBuilder(
+    #[prop(into)] chargers: Signal<Vec<Charger>>,
+    set_chargers: SignalSetter<Vec<Charger>>,
+) -> impl IntoView {
     let (grid_connection, set_grid_connection) = create_signal(Power::from_kw(600.0));
     let load_share = create_rw_signal(LoadSharingStrategy::None);
     let (number_of_plugs, set_number_of_plugs) = create_slice(
@@ -715,7 +774,9 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                     </div>
                     <button class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500" on:click=move |_| {
                         let strategy = load_share.get_untracked();
-                        chargers.update(|u| u.push(Charger::new(grid_connection.get_untracked(), strategy)));
+                        let mut chargers = chargers();
+                        chargers.push(Charger::new(grid_connection.get_untracked(), strategy));
+                        set_chargers(chargers);
                         load_share.set(LoadSharingStrategy::None);
                     }>"Add charger +"</button>
                 </div>
@@ -724,7 +785,10 @@ fn ChargerBuilder(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
 }
 
 #[component]
-fn ChargerList(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
+fn ChargerList(
+    #[prop(into)] chargers: Signal<Vec<Charger>>,
+    set_chargers: SignalSetter<Vec<Charger>>,
+) -> impl IntoView {
     view! {
         <div class:collapse=move || chargers.with(|c| c.is_empty())>
             <h3 class="text-xl">"Chargers: "</h3>
@@ -735,7 +799,9 @@ fn ChargerList(chargers: RwSignal<Vec<Charger>>) -> impl IntoView {
                 {charger.1.grid_connection.to_string()}" "
                 {format!("{:?}", charger.1.strategy)}
                 <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| {
-                    chargers.update(|c| { c.remove(charger.0); });
+                    let mut chargers = chargers();
+                    chargers.remove(charger.0);
+                    set_chargers(chargers);
                 }>"X"</button>
             </div>
             </For>
@@ -804,7 +870,7 @@ fn ChargeCurve(#[prop(into)] spec: Signal<Option<&'static VehicleSpec>>) -> impl
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 struct ChargingVehicle {
     /// the power allocated by the charger to this vehicle currently
     allocated_power: Power,
@@ -816,7 +882,7 @@ impl ChargingVehicle {
     fn summary(&self) -> VehicleChargeFrame {
         let soc = self.vehicle.soc();
         let allocated_power = self.allocated_power;
-        let spec = self.vehicle.spec;
+        let spec = self.vehicle.spec.borrow().try_into().ok().unwrap();
         VehicleChargeFrame {
             soc,
             allocated_power,
@@ -826,10 +892,11 @@ impl ChargingVehicle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 struct Charger {
     grid_connection: Power,
     strategy: LoadSharingStrategy,
+    #[serde(skip)]
     currently_charging: Vec<ChargingVehicle>,
 }
 
@@ -1215,15 +1282,19 @@ fn SimulationChart(
 
 #[component]
 fn Simulation(
-    vehicles: RwSignal<VecDeque<Vehicle>>,
-    chargers: RwSignal<Vec<Charger>>,
+    #[prop(into)] vehicles: Signal<VecDeque<Vehicle>>,
+    #[prop(into)] chargers: Signal<Vec<Charger>>,
     sim_step: ReadSignal<Duration>,
 ) -> impl IntoView {
     let prefers_dark = leptos_use::use_preferred_dark();
     {
         move || {
             let v = vehicles();
-            let (vehicles_signal, _) = create_signal(v.iter().map(|v| v.spec).collect::<Vec<_>>());
+            let (vehicles_signal, _) = create_signal(
+                v.iter()
+                    .flat_map(|v| v.spec.borrow().try_into())
+                    .collect::<Vec<_>>(),
+            );
             let c = chargers();
             let simulation_step_time = sim_step();
             let mut sim = Sim {
@@ -1273,10 +1344,86 @@ fn Simulation(
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Default, Clone)]
+struct Query {
+    chargers: Vec<Charger>,
+    vehicles: VecDeque<Vehicle>,
+}
+
+fn create_compressed_query<T: DeserializeOwned + Serialize + PartialEq + Default>(
+) -> (Memo<T>, SignalSetter<T>) {
+    let location = use_location();
+    let navigate = use_navigate();
+    let search = location.search;
+
+    let get = create_memo(move |_| {
+        match search.with::<Result<_, Box<dyn std::error::Error>>>(|query_string| {
+            let str = general_purpose::URL_SAFE.decode(query_string)?;
+            info!("read string {str:?}");
+            let mut decompress_out = Vec::new();
+            let mut decoder = DeflateDecoder::new(Cursor::new(str));
+            let end = decoder.read_to_end(&mut decompress_out)?;
+            info!("decompressed {decompress_out:?} {end:?}");
+            let query_string = String::from_utf8(decompress_out)?;
+            info!("{query_string}");
+            Ok(serde_json::from_str::<T>(&query_string)?)
+        }) {
+            Ok(query) => query,
+            Err(err) => {
+                log::error!("Error reading {err}");
+                T::default()
+            }
+        }
+    });
+    let set = SignalSetter::map(move |query: T| {
+        let query = serde_json::to_string(&query).unwrap();
+        let mut bytes = Vec::new();
+        {
+            let mut encoder = DeflateEncoder::new(&mut bytes, Compression::new(9));
+            encoder.write_all(query.as_bytes()).unwrap();
+            encoder.flush().unwrap();
+        }
+        let query = general_purpose::URL_SAFE.encode(bytes);
+        let path = location.pathname.get_untracked();
+        let hash = location.hash.get_untracked();
+        let url = [path.as_str(), "?", query.as_str(), hash.as_str()].concat();
+        navigate(&url, NavigateOptions::default());
+    });
+    (get, set)
+}
+
+fn create_sub_slice<T, S, F, F2, O>(
+    getter: S,
+    setter: SignalSetter<T>,
+    get: F,
+    get_mut: F2,
+) -> (Memo<O>, SignalSetter<O>)
+where
+    S: Into<Signal<T>>,
+    F: Fn(&T) -> &O + 'static,
+    F2: Fn(&mut T) -> &mut O + 'static,
+    O: PartialEq + Clone,
+    T: Clone,
+{
+    let getter: Signal<T> = getter.into();
+    let get = create_memo(move |_| getter.with(|value| get(value).clone()));
+    let set = SignalSetter::map(move |update| {
+        let mut value = getter();
+        *get_mut(&mut value) = update;
+        setter(value)
+    });
+    (get, set)
+}
+
 #[component]
 pub fn VehicleSim() -> impl IntoView {
-    let vehicles = create_rw_signal(VecDeque::new());
-    let chargers = create_rw_signal(vec![]);
+    let (query, set_query) = create_compressed_query::<Query>();
+    let (chargers, set_chargers) =
+        create_sub_slice(query, set_query, |q| &q.chargers, |q| &mut q.chargers);
+    let (vehicles, set_vehicles) =
+        create_sub_slice(query, set_query, |q| &q.vehicles, |q| &mut q.vehicles);
+    // let vehicles = create_rw_signal(VecDeque::new());
+    // let chargers = create_rw_signal(vec![]);
     let (simulation_time, _) = create_signal(Duration::from_secs(1));
     view! {
         <Title text="DC Fast Charger Sim" />
@@ -1286,12 +1433,12 @@ pub fn VehicleSim() -> impl IntoView {
                 <span>"Simulate real charging time for electric vehicles in the real world with a variety of fast chargers."</span>
             </div>
             <div class="flex flex-col gap-1">
-                <VehicleChooser vehicles />
-                <ChargerBuilder chargers />
+                <VehicleChooser vehicles set_vehicles />
+                <ChargerBuilder chargers set_chargers />
             </div>
             <div class="flex flex-col md:flex-row gap-1">
-                <VehicleList vehicles />
-                <ChargerList chargers />
+                <VehicleList vehicles set_vehicles/>
+                <ChargerList chargers set_chargers />
             </div>
             <div class="flex flex-col gap-1">
                 <Simulation vehicles chargers sim_step=simulation_time />

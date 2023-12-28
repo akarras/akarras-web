@@ -95,11 +95,13 @@ checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "cfg-if",
  "charming",
  "chrono",
  "comrak",
  "const_soft_float",
+ "flate2",
  "http",
  "itertools 0.12.0",
  "leptos",
@@ -111,6 +113,7 @@ dependencies = [
  "reqwest",
  "retainer",
  "serde",
+ "serde_json",
  "sublime_fuzzy",
  "thiserror",
  "tokio",
