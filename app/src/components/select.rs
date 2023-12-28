@@ -2,7 +2,6 @@ use leptos::{
     html::{Div, Input},
     *,
 };
-#[cfg(feature = "hydrate")]
 use leptos_use::use_element_hover;
 use sublime_fuzzy::{FuzzySearch, Match, Scoring};
 
@@ -33,12 +32,7 @@ where
     let (has_focus, set_focused) = create_signal(false);
     let dropdown = create_node_ref::<Div>();
     let input = create_node_ref::<Input>();
-    #[cfg(feature = "hydrate")]
     let hovered = use_element_hover(dropdown);
-    #[cfg(not(feature = "hydrate"))]
-    let hovered: Signal<bool> = create_memo(move |_| false).into();
-    #[cfg(not(feature = "hydrate"))]
-    let _dropdown = dropdown;
     let labels = create_memo(move |_| {
         items.with(|i| {
             i.iter()
