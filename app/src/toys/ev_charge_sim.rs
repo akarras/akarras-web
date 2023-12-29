@@ -5,8 +5,10 @@ use itertools::Itertools;
 use leptos::*;
 use leptos_meta::{Script, Title};
 use leptos_router::{use_location, use_navigate, NavigateOptions};
-use leptos_use::use_preferred_dark;
-use log::info;
+use leptos_use::{
+    core::Size, use_element_size, use_element_size_with_options, use_media_query,
+    use_preferred_dark, UseElementSizeOptions, UseElementSizeReturn,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
@@ -27,7 +29,7 @@ use crate::components::Select;
 /// Represented as a u16 from 0-10000 internally
 /// Useful for representing state of charge
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct PercentFull(u16);
+struct PercentFull(i16);
 
 impl std::fmt::Debug for PercentFull {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,7 +43,7 @@ impl PercentFull {
     const PRECISION: f64 = 100.0;
     const fn new(float: f64) -> Self {
         // 100.0 * 100.0 -> 10000
-        let percent = SoftF64(float).mul(SoftF64(Self::PRECISION)).0 as u16;
+        let percent = SoftF64(float).mul(SoftF64(Self::PRECISION)).0 as i16;
         Self(percent)
     }
 
@@ -73,6 +75,14 @@ impl Mul<Energy> for PercentFull {
         Energy {
             watt_hours: rhs.watt_hours * self.as_partial_float(),
         }
+    }
+}
+
+impl Sub for PercentFull {
+    type Output = PercentFull;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
     }
 }
 
@@ -111,8 +121,18 @@ impl Div<Power> for Energy {
     type Output = Duration;
 
     fn div(self, rhs: Power) -> Self::Output {
-        let hours = (rhs.watts as f64) / self.watt_hours;
-        Duration::from_secs_f64(hours / 60.0 / 60.0)
+        let hours = self.watt_hours / (rhs.watts as f64);
+        Duration::try_from_secs_f64(hours * 60.0 * 60.0).unwrap_or_default()
+    }
+}
+
+impl Add for Energy {
+    type Output = Energy;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            watt_hours: self.watt_hours + rhs.watt_hours,
+        }
     }
 }
 
@@ -272,6 +292,9 @@ struct ChargeCurve {
 impl ChargeCurve {
     /// calculates the average charge charge power
     fn average_power(&self) -> Power {
+        if self.data_points.len() < 1 {
+            return Power::from_kw(0.0);
+        }
         let total_power = self
             .data_points
             .windows(2)
@@ -288,6 +311,11 @@ impl ChargeCurve {
                 ((start_watts + end_watts) / 2) as f64 * span_length
             })
             .sum::<f64>();
+        let start = self.data_points.first().unwrap().state_of_charge;
+        let end = self.data_points.last().unwrap().state_of_charge;
+        let length = end - start;
+        let length_correction = 1.0 / length.as_partial_float();
+        let total_power = total_power * length_correction;
         Power {
             watts: total_power as i32,
         }
@@ -324,17 +352,22 @@ impl ChargeCurve {
         start_percent: PercentFull,
         end_percent: PercentFull,
     ) -> Option<Self> {
-        let find_range = |percent: PercentFull| {
+        let ((_, _), (start_edge, _)) =
             self.data_points
                 .iter()
                 .enumerate()
                 .tuple_windows()
                 .find(|((_, a), (_, b))| {
-                    a.state_of_charge.0 <= percent.0 && b.state_of_charge.0 > percent.0
-                })
-        };
-        let ((_, _), (start_edge, _)) = find_range(start_percent)?;
-        let ((end_edge, _), (_, _)) = find_range(end_percent)?;
+                    a.state_of_charge.0 <= start_percent.0 && b.state_of_charge.0 > start_percent.0
+                })?;
+        let ((end_edge, _), (_, _)) =
+            self.data_points
+                .iter()
+                .enumerate()
+                .tuple_windows()
+                .find(|((_, a), (_, b))| {
+                    a.state_of_charge.0 < end_percent.0 && b.state_of_charge.0 >= end_percent.0
+                })?;
         let curve_middle = &self.data_points[start_edge..=end_edge];
         let start_point = CurvePoint {
             state_of_charge: start_percent,
@@ -478,9 +511,10 @@ static VEHICLES: &'static [VehicleSpec] = &[
                 CurvePoint::new(55.0, 198.0),
                 CurvePoint::new(60.0, 100.0),
                 CurvePoint::new(70.00, 198.0),
+                CurvePoint::new(77.0, 75.0),
                 CurvePoint::new(78.0, 168.0),
-                CurvePoint::new(80.0, 0.0),
-                CurvePoint::new(82.0, 125.0),
+                CurvePoint::new(82.0, 10.0),
+                CurvePoint::new(83.0, 125.0),
                 CurvePoint::new(100.0, 20.0),
             ]),
         },
@@ -495,6 +529,21 @@ static VEHICLES: &'static [VehicleSpec] = &[
                 CurvePoint::new(2.0, 280.0),
                 CurvePoint::new(10.0, 300.0),
                 CurvePoint::new(20.0, 290.0),
+                CurvePoint::new(80.0, 100.0),
+                CurvePoint::new(100.0, 10.0),
+            ]),
+        },
+        epa_miles: 510.0,
+    },
+    VehicleSpec {
+        name: "Porsche Taycan 2022",
+        battery_max: Energy::from_kwh(112.0),
+        charge_curve: ChargeCurve {
+            data_points: Cow::Borrowed(&[
+                CurvePoint::new(0.00, 260.0),
+                CurvePoint::new(21.0, 265.0),
+                CurvePoint::new(22.0, 250.0),
+                CurvePoint::new(28.0, 200.0),
                 CurvePoint::new(80.0, 100.0),
                 CurvePoint::new(100.0, 10.0),
             ]),
@@ -524,11 +573,14 @@ static VEHICLES: &'static [VehicleSpec] = &[
                 CurvePoint::new(8.0, 225.0),
                 CurvePoint::new(11.0, 250.0),
                 CurvePoint::new(20.0, 250.0),
-                CurvePoint::new(21.0, 200.0),
-                CurvePoint::new(25.0, 150.0),
-                CurvePoint::new(30.0, 140.0),
-                CurvePoint::new(45.0, 145.0),
-                CurvePoint::new(100.0, 5.0),
+                CurvePoint::new(24.0, 250.0),
+                CurvePoint::new(26.0, 200.0),
+                CurvePoint::new(34.0, 200.0),
+                CurvePoint::new(36.0, 150.0),
+                CurvePoint::new(66.0, 120.0),
+                CurvePoint::new(69.0, 120.0),
+                CurvePoint::new(80.0, 60.0),
+                CurvePoint::new(100.0, 20.0),
             ]),
         },
         epa_miles: 358.0,
@@ -548,6 +600,29 @@ static VEHICLES: &'static [VehicleSpec] = &[
                 CurvePoint::new(60.0, 145.0),
                 CurvePoint::new(70.0, 75.0),
                 CurvePoint::new(80.0, 75.0),
+                CurvePoint::new(100.0, 15.0),
+            ]),
+        },
+        epa_miles: 352.0,
+    },
+    VehicleSpec {
+        name: "GMC Hummer EV Pickup",
+        battery_max: Energy::from_kwh(212.0),
+        charge_curve: ChargeCurve {
+            data_points: Cow::Borrowed(&[
+                // There might be a revised charge curve for 2023 but I can't find a full sample
+                CurvePoint::new(0.0, 150.0),
+                CurvePoint::new(1.0, 335.0),
+                CurvePoint::new(2.0, 338.0),
+                CurvePoint::new(34.0, 345.0),
+                CurvePoint::new(36.0, 306.0),
+                CurvePoint::new(40.0, 294.0),
+                CurvePoint::new(50.0, 257.0),
+                CurvePoint::new(62.0, 255.0),
+                CurvePoint::new(70.0, 115.0),
+                CurvePoint::new(80.0, 45.0),
+                CurvePoint::new(83.0, 17.0),
+                CurvePoint::new(90.0, 51.0),
                 CurvePoint::new(100.0, 15.0),
             ]),
         },
@@ -612,24 +687,33 @@ fn VehicleChooser(
     });
     let (start_energy, set_start_energy) = create_signal(PercentFull::new(10.0));
     let (unplug_at, set_unplug_at) = create_signal(PercentFull::new(80.0));
+    let estimated_charge_time = move || {
+        (unplug_at() - start_energy()) * specs().battery_max
+            / specs()
+                .charge_curve
+                .percent_to_percent(start_energy(), unplug_at())
+                .map(|curve| curve.average_power())
+                .unwrap_or(Power::from_kw(0.0))
+    };
     view! {
         <div class="flex flex-col">
-                <h4 class="text-xl">"Vehicle:"</h4>
+                <h4 class="text-xl">"Add Vehicle:"</h4>
                 <div class="flex flex-col xl:flex-row gap-1">
                     <VehicleDropdown current_vehicle=vehicle_spec set_vehicle=set_vehicle_spec />
                     <div class="flex flex-col" class:invisible=move || vehicle_spec.with(|spec| spec.is_none())>
                         <span>"battery capacity: "{move || specs().battery_max.to_string()}</span>
                         <span>"avg charge speed: "{move || specs().charge_curve.average_power().to_string()}</span>
-                        <span>"avg 10->80% charge speed: "{move || specs().charge_curve.percent_to_percent(PercentFull::new(10.0), PercentFull::new(80.0)).map(|curve| curve.average_power().to_string())}</span>
+                        <span>"avg "{move || start_energy().to_string()}"->"{move || unplug_at().to_string()}" charge speed:"<span>{move || specs().charge_curve.percent_to_percent(start_energy(), unplug_at()).map(|curve| curve.average_power().to_string())}</span></span>
+                        <span>{move || format!("estimated charge time: {:.2} mins", (estimated_charge_time().as_secs_f64() / 60.0))}</span>
                     </div>
                     <div class:invisible=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
                         <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Charge start battery%: "{move || start_energy().to_string()}" "{move || (start_energy() * specs().battery_max).to_string()}</label>
                         <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || start_energy().as_float().to_string() on:input=move |e| {
                             if let Ok(value) = event_target_value(&e).parse() {
                                 if unplug_at.get_untracked().as_float() < value {
-                                    set_unplug_at(PercentFull::new((value + 1.0).min(100.0)));
+                                    set_unplug_at(PercentFull::new((value + 5.0).min(100.0)));
                                 }
-                                set_start_energy(PercentFull::new(value));
+                                set_start_energy(PercentFull::new(value.min(95.0)));
                             }
                         }/>
                     </div>
@@ -638,9 +722,9 @@ fn VehicleChooser(
                         <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || unplug_at().as_float().to_string() on:input=move |e| {
                             if let Ok(value) = event_target_value(&e).parse() {
                                 if start_energy.get_untracked().as_float() > value {
-                                    set_start_energy(PercentFull::new((value - 1.0).max(0.0)));
+                                    set_start_energy(PercentFull::new((value - 5.0).max(0.0)));
                                 }
-                                set_unplug_at(PercentFull::new(value));
+                                set_unplug_at(PercentFull::new(value.max(5.0)));
                             }
                         }/>
                     </div>
@@ -667,15 +751,17 @@ fn VehicleList(
     set_vehicles: SignalSetter<VecDeque<Vehicle>>,
 ) -> impl IntoView {
     view! {
-        <div class="flex flex-col" class:collapse=move || vehicles.with(|v| v.is_empty())>
-            <h2 class="text-xl">"Vehicles:"</h2>
-            <ul class="list-disc">
+        <div class="grid grid-cols-4 gap-1" class:collapse=move || vehicles.with(|v| v.is_empty())>
+            <h2 class="text-xl col-span-4">"Vehicles:"</h2>
+
             <For each={move || vehicles().into_iter().enumerate()}
                 key=|(i, v)| (*i, v.spec_details().name)
                 let:vehicle>
-                <li>{vehicle.1.spec.name.clone()}" " {vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()} <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| { let mut vehicles = vehicles(); vehicles.remove(vehicle.0); set_vehicles(vehicles); }>"X"</button></li>
+                <div class="col-span-2">{vehicle.1.spec.name.clone()}</div>
+                <div>{vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()}</div>
+                <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| { let mut vehicles = vehicles(); vehicles.remove(vehicle.0); set_vehicles(vehicles); }>"X"</button>
             </For>
-            </ul>
+
         </div>
     }
 }
@@ -733,7 +819,7 @@ fn ChargerBuilder(
     let btn_inactive = "rounded-sm bg-gray-400 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-1 border border-gray-300 dark:border-gray-600";
     view! {
         <div class="flex flex-col">
-                <h4 class="text-xl">"Charger: "</h4>
+                <h4 class="text-xl">"Add Charger: "</h4>
                 <div class="grid grid-cols-2">
                     <div>
                         "Grid Connection: "{move || grid_connection().to_string()}
@@ -810,20 +896,32 @@ fn ChargerList(
     set_chargers: SignalSetter<Vec<Charger>>,
 ) -> impl IntoView {
     view! {
-        <div class:collapse=move || chargers.with(|c| c.is_empty())>
-            <h3 class="text-xl">"Chargers: "</h3>
+        <div class="grid grid-cols-2" class:collapse=move || chargers.with(|c| c.is_empty())>
+            <h3 class="text-xl col-span-2">"Chargers: "</h3>
             <For each=move || chargers.get().into_iter().enumerate()
             key=|(i, c)| (*i, c.grid_connection.watts, format!("{:?}", c.strategy))
             let:charger>
-            <div class="flex flex-row">
-                {charger.1.grid_connection.to_string()}" "
-                {format!("{:?}", charger.1.strategy)}
-                <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| {
-                    let mut chargers = chargers();
-                    chargers.remove(charger.0);
-                    set_chargers(chargers);
-                }>"X"</button>
+            <div class="p-1 flex flex-row rounded gap-1 bg-gray-300 dark:bg-gray-700 border border-solid border-gray-500">
+                "Grid power: "{charger.1.grid_connection.to_string()}<br/>
+                {match charger.1.strategy {
+                    LoadSharingStrategy::None => "None".into_view(),
+                    LoadSharingStrategy::Paired { number_of_plugs } => format!("Paired - {number_of_plugs}").into_view(),
+                    LoadSharingStrategy::Split { number_of_plugs } => view!{ <div class="flex flex-col">
+                        <span>"Even split"</span>
+                        <span>"Number of plugs: "{number_of_plugs}</span></div>}.into_view(),
+                    LoadSharingStrategy::Granular { power_step, number_of_plugs, max_per_plug } => view!{<div class="flex flex-col">
+                        <span>"Incremental Share"</span>
+                        <span>"Power step size: "{power_step.as_kw()}</span>
+                        <span>"Number of plugs: "{number_of_plugs}</span>
+                        <span>"Max per plug: "{max_per_plug.as_kw()}</span>
+                    </div>}.into_view(),
+                }}
             </div>
+            <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| {
+                let mut chargers = chargers();
+                chargers.remove(charger.0);
+                set_chargers(chargers);
+            }>"X"</button>
             </For>
         </div>
     }
@@ -835,10 +933,15 @@ fn ChargeCurve(
     #[prop(into)] start_soc: Signal<PercentFull>,
     #[prop(into)] end_soc: Signal<PercentFull>,
 ) -> impl IntoView {
+    let container = create_node_ref::<html::Div>();
+    let UseElementSizeReturn { width, height } = use_element_size(container);
     let dark_mode = use_preferred_dark();
     create_effect(move |_| {
         let start_soc = start_soc();
         let end_soc = end_soc();
+        let desired_width = (width() - 5.0).max(100.0) as u32;
+        let desired_height = (height() - 5.0).max(100.0) as u32;
+
         if let Some(spec) = spec() {
             #[cfg(feature = "hydrate")]
             {
@@ -870,7 +973,7 @@ fn ChargeCurve(
                             .name("Charge Power (KW)")
                             .type_(AxisType::Value)
                             .name_location(NameLocation::Center)
-                            .name_gap(25.0)
+                            .name_gap(35.0)
                             .axis_label(AxisLabel::new().show(true)),
                     )
                     .visual_map(
@@ -907,8 +1010,7 @@ fn ChargeCurve(
                             .area_style(AreaStyle::new()),
                     )
                     .legend(Legend::new());
-                let html = WasmRenderer::new(720, 400);
-                info!("rendering chart?");
+                let html = WasmRenderer::new(desired_width, desired_height);
                 html.theme(match dark_mode() {
                     true => charming::theme::Theme::Dark,
                     false => charming::theme::Theme::Chalk,
@@ -921,7 +1023,11 @@ fn ChargeCurve(
     view! {
         <Script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></Script>
         <Script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></Script>
-        {move || { let _ = dark_mode(); view!{ <div class:invisible=move || spec().is_none() id="chargecurve"></div> }}}
+        <div class:collapse=move || spec().is_none() class="flex flex-col">
+            <div node_ref=container class="w-full h-screen md:h-[50vh]">{move || { let _ = dark_mode(); let _ = width(); let _ = height(); view!{ <div id="chargecurve"></div> }}}</div>
+            <span>"Please note that the displayed curve may not be accurate."</span>
+            <span>"Assumes charger can match voltage of the vehicle and optimal battery temperature."</span>
+        </div>
     }
 }
 
@@ -935,13 +1041,9 @@ struct ChargingVehicle {
 
 impl ChargingVehicle {
     fn summary(&self) -> VehicleChargeFrame {
-        let soc = self.vehicle.soc();
         let allocated_power = self.allocated_power;
-        let spec = self.vehicle.spec.borrow().try_into().ok().unwrap();
         VehicleChargeFrame {
-            soc,
             allocated_power,
-            spec,
             vehicle_id: self.vehicle_id,
         }
     }
@@ -1090,10 +1192,8 @@ struct Sim {
 
 #[derive(Clone, Copy)]
 struct VehicleChargeFrame {
-    soc: PercentFull,
     allocated_power: Power,
     vehicle_id: usize,
-    spec: &'static VehicleSpec,
 }
 
 #[derive(Copy, Clone)]
@@ -1108,7 +1208,6 @@ struct SimFrame {
     energy_dispensed: Energy,
     chargers: Vec<ChargerFrame>,
     vehicles_charging: Vec<VehicleChargeFrame>,
-    plugs_unused: u32,
     duration: Duration,
 }
 
@@ -1142,7 +1241,7 @@ impl Sim {
                 ChargerFrame {
                     charger_id,
                     active_power,
-                    unused_power: charger.grid_connection - active_power,
+                    unused_power: (charger.grid_connection - active_power).max(Power::from_kw(0.0)), // disallow negatives
                 }
             })
             .collect();
@@ -1153,11 +1252,6 @@ impl Sim {
                 .iter()
                 .flat_map(|c| c.currently_charging.iter().map(|c| c.summary()))
                 .collect(),
-            plugs_unused: self
-                .chargers
-                .iter()
-                .map(|c| c.num_plugs() - c.currently_charging.len() as u32)
-                .sum(),
             duration: self.simulation_time,
             chargers,
         }
@@ -1241,7 +1335,18 @@ fn SimulationChart(
     data: Signal<Vec<SimFrame>>,
     prefers_dark: Signal<bool>,
 ) -> impl IntoView {
+    let node = create_node_ref::<html::Div>();
+    let UseElementSizeReturn { width, height } = use_element_size_with_options(
+        node,
+        UseElementSizeOptions::default().initial_size(Size {
+            width: 1000.0,
+            height: 500.0,
+        }),
+    );
+    let is_large = use_media_query("(min-width: 728px)");
     create_effect(move |_| {
+        let desired_width = (width() - 10.0).max(100.0) as u32;
+        let desired_height = (height() - 10.0).max(100.0) as u32;
         let vehicles = vehicles();
         let prefers_dark = prefers_dark();
         if data.with(|d| d.is_empty()) {
@@ -1257,18 +1362,24 @@ fn SimulationChart(
                     Axis, Feature, Grid, Legend, LegendType, Restore, SaveAsImage, Title, Toolbox,
                     ToolboxDataZoom,
                 },
-                element::{AxisLabel, AxisType, LineStyle, NameLocation, Orient, Tooltip, Trigger},
+                element::{AxisLabel, AxisType, NameLocation, Orient, Tooltip, Trigger},
                 series::Line,
                 WasmRenderer,
             };
             let mut chart = charming::Chart::new()
-                .title(Title::new().text("Charging data"))
-                .grid(Grid::new().right(250).left(62.0).top(62.0).bottom(62.0))
+                .title(Title::new().text("Charging Simulation"))
+                .grid(
+                    Grid::new()
+                        .right(if is_large() { 300 } else { 100 })
+                        .left(62.0)
+                        .top(62.0)
+                        .bottom(50.0),
+                )
                 .x_axis(
                     Axis::new()
-                        .name("Time in minutes")
+                        .name("Time elapsed (minutes)")
                         .name_location(NameLocation::Center)
-                        .name_gap(50.0)
+                        .name_gap(25.0)
                         .axis_label(AxisLabel::new().show(true).formatter("{value} min"))
                         .type_(AxisType::Value),
                 )
@@ -1278,23 +1389,29 @@ fn SimulationChart(
                         .type_(AxisType::Value)
                         .name_location(NameLocation::Center)
                         .name_gap(50.0)
-                        .axis_label(AxisLabel::new().formatter("{value} kw").show(true)),
+                        .axis_label(AxisLabel::new().formatter("{value} kw").show(true))
+                        .boundary_gap(("0%", "0%")),
                 )
                 .y_axis(
                     Axis::new()
                         .name("Energy Dispensed (kwh)")
                         .type_(AxisType::Value)
                         .name_location(NameLocation::Center)
-                        .name_gap(25.0)
+                        .name_gap(60.0)
                         .axis_label(AxisLabel::new().formatter("{value} kwH").show(true)),
                 )
-                .legend(
+                .legend(if is_large() {
                     Legend::new()
                         .type_(LegendType::Scroll)
                         .orient(Orient::Vertical)
                         .right(0.0)
-                        .top("center"),
-                )
+                        .top("center")
+                } else {
+                    Legend::new()
+                        .type_(LegendType::Scroll)
+                        .orient(Orient::Horizontal)
+                        .top(25.0)
+                })
                 .tooltip(Tooltip::new().trigger(Trigger::Axis))
                 .toolbox(
                     Toolbox::new().show(true).feature(
@@ -1327,8 +1444,12 @@ fn SimulationChart(
                 );
             }
             let energy_dispensed = data.with(|d| {
+                let mut sum = Energy::from_kwh(0.0);
                 d.iter()
-                    .map(|s| vec![s.duration.as_secs_f64() / 60.0, s.energy_dispensed.as_kwh()])
+                    .map(|s| {
+                        sum += s.energy_dispensed;
+                        vec![s.duration.as_secs_f64() / 60.0, sum.as_kwh()]
+                    })
                     .collect::<Vec<_>>()
             });
             chart = chart.series(
@@ -1340,8 +1461,7 @@ fn SimulationChart(
                     .y_axis_index(1),
             );
 
-            let html = WasmRenderer::new(1080, 500);
-            info!("rendering chart?");
+            let html = WasmRenderer::new(desired_width, desired_height);
             html.theme(match prefers_dark {
                 true => charming::theme::Theme::Dark,
                 false => charming::theme::Theme::Chalk,
@@ -1350,9 +1470,14 @@ fn SimulationChart(
             .unwrap();
         }
     });
-    move || {
-        prefers_dark();
-        view! { <div class="w-full" class:invisible=move || data.with(|d| d.is_empty()) id="simchart"></div> }
+    view! {<div class="w-full h-screen md:h-[500px]" node_ref=node>
+        {move || {
+            prefers_dark();
+            let _ = width();
+            let _ = height();
+            view! { <div class:invisible=move || data.with(|d| d.is_empty()) id="simchart"></div> }
+        }}
+    </div>
     }
 }
 
@@ -1391,27 +1516,26 @@ fn Simulation(
                 let (steps_signal, _) = create_signal(steps.clone());
                 view!{
                     <SimulationChart vehicles=vehicles_signal.into() data=steps_signal.into() prefers_dark />
-                <div class="flex flex-col">
-                    <div>"energy dispensed: "{total_energy_dispensed.to_string()}</div>
-                    <div>"minutes running: "{total_time_spent.as_secs()/60}</div>
-                    <div>"----"</div>
-                    <div>{vehicles.with(|v| v.len())}" vehicles"</div>
-                    <div>{chargers.with(|c| c.len())}" chargers"</div>
-                    <div>{simulation_step_time.as_secs().to_string()}"s step time"</div>
-                </div>
-                <div class="grid grid-cols-4">
-                    <div>"minutes"</div><div>"energy dispensed"</div><div>"vehicles charging"</div><div>"plugs unused"</div>
-                    {steps.into_iter().enumerate().filter(|(i, _b)| i % 60 == 1).map(|(_, b)| b).map(|s| view!{
-                        <div>{format!("{:.2}", s.duration.as_secs_f64() / 60.0)}</div>
-                        <div>{s.energy_dispensed.to_string()}</div>
-                        <div>{s.vehicles_charging.len()}" total"
-                            <ul>
-                                {s.vehicles_charging.into_iter().map(|summary| view!{ <li>{summary.allocated_power.to_string()}"@"{summary.soc.to_string()}", "{summary.spec.name.to_string()}</li>}).collect_view()}
-                            </ul>
-                        </div>
-                        <div>{s.plugs_unused}</div>
-                    }).collect_view()}
-                </div>
+                    <div class="flex flex-row flex-wrap gap-4 text-md">
+                        <div>"energy dispensed: "{total_energy_dispensed.to_string()}</div>
+                        <div>"minutes running: "{total_time_spent.as_secs()/60}</div>
+                        <div>"vehicles: "{vehicles.with(|v| v.len())}</div>
+                        <div>"chargers: "{chargers.with(|c| c.len())}</div>
+                        <div>{simulation_step_time.as_secs().to_string()}" second simulation interval"</div>
+                    </div>
+                // <div class="grid grid-cols-4">
+                //     <div>"minutes"</div><div>"energy dispensed"</div><div>"vehicles charging"</div><div>"plugs unused"</div>
+                //     {steps.into_iter().enumerate().filter(|(i, _b)| i % 60 == 1).map(|(_, b)| b).map(|s| view!{
+                //         <div>{format!("{:.2}", s.duration.as_secs_f64() / 60.0)}</div>
+                //         <div>{s.energy_dispensed.to_string()}</div>
+                //         <div>{s.vehicles_charging.len()}" total"
+                //             <ul>
+                //                 {s.vehicles_charging.into_iter().map(|summary| view!{ <li>{summary.allocated_power.to_string()}"@"{summary.soc.to_string()}", "{summary.spec.name.to_string()}</li>}).collect_view()}
+                //             </ul>
+                //         </div>
+                //         <div>{s.plugs_unused}</div>
+                //     }).collect_view()}
+                // </div>
             }.into_view()
             } else {
                 view! { "Add chargers and vehicles to get started" }.into_view()
@@ -1435,13 +1559,10 @@ fn create_compressed_query<T: DeserializeOwned + Serialize + PartialEq + Default
     let get = create_memo(move |_| {
         match search.with::<Result<_, Box<dyn std::error::Error>>>(|query_string| {
             let str = general_purpose::URL_SAFE.decode(query_string)?;
-            info!("read string {str:?}");
             let mut decompress_out = Vec::new();
             let mut decoder = DeflateDecoder::new(Cursor::new(str));
-            let end = decoder.read_to_end(&mut decompress_out)?;
-            info!("decompressed {decompress_out:?} {end:?}");
+            let _end = decoder.read_to_end(&mut decompress_out)?;
             let query_string = String::from_utf8(decompress_out)?;
-            info!("{query_string}");
             Ok(serde_json::from_str::<T>(&query_string)?)
         }) {
             Ok(query) => query,
@@ -1498,8 +1619,6 @@ pub fn VehicleSim() -> impl IntoView {
         create_sub_slice(query, set_query, |q| &q.chargers, |q| &mut q.chargers);
     let (vehicles, set_vehicles) =
         create_sub_slice(query, set_query, |q| &q.vehicles, |q| &mut q.vehicles);
-    // let vehicles = create_rw_signal(VecDeque::new());
-    // let chargers = create_rw_signal(vec![]);
     let (simulation_time, _) = create_signal(Duration::from_secs(1));
     view! {
         <Title text="DC Fast Charger Sim" />
@@ -1509,15 +1628,15 @@ pub fn VehicleSim() -> impl IntoView {
                 <span>"Simulate real charging time for electric vehicles in the real world with a variety of fast chargers."</span>
             </div>
             <div class="flex flex-col gap-1">
-                <VehicleChooser vehicles set_vehicles />
-                <ChargerBuilder chargers set_chargers />
+                <Simulation vehicles chargers sim_step=simulation_time />
             </div>
             <div class="flex flex-col md:flex-row gap-1">
                 <VehicleList vehicles set_vehicles/>
                 <ChargerList chargers set_chargers />
             </div>
             <div class="flex flex-col gap-1">
-                <Simulation vehicles chargers sim_step=simulation_time />
+                <VehicleChooser vehicles set_vehicles />
+                <ChargerBuilder chargers set_chargers />
             </div>
         </div>
     }

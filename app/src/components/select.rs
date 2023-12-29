@@ -4,6 +4,7 @@ use leptos::{
 };
 use leptos_use::use_element_hover;
 use sublime_fuzzy::{FuzzySearch, Match, Scoring};
+use web_sys::wasm_bindgen::JsCast;
 
 use super::MatchFormatter;
 pub(crate) fn fuzzy_search(query: &str, target: &str) -> Option<Match> {
@@ -93,8 +94,13 @@ where
                     <button class="flex flex-col w-full" on:click=move |_| {
                         if let Some(item) = items.with(|i| i.get(data.0).cloned()) {
                             set_choice(Some(item));
+                            input.get_untracked().unwrap().blur().unwrap();
                             set_focused(false);
                             set_current_input("".to_string());
+
+                            if let Some(element) = document().active_element().and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok()) {
+                                element.blur().unwrap();
+                            }
                         }
                     }>
                         <div class="hover:bg-gray-300 dark:hover:bg-gray-700 hover:border-solid hover:border-neutral-200 dark:hover:border-neutral-600 rounded-sm p-2" class:bg-gray-500=move || {
