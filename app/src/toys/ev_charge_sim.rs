@@ -537,7 +537,7 @@ static VEHICLES: &'static [VehicleSpec] = &[
     },
     VehicleSpec {
         name: "Porsche Taycan 2022",
-        battery_max: Energy::from_kwh(112.0),
+        battery_max: Energy::from_kwh(93.4),
         charge_curve: ChargeCurve {
             data_points: Cow::Borrowed(&[
                 CurvePoint::new(0.00, 260.0),
