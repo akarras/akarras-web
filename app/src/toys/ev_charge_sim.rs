@@ -533,6 +533,26 @@ static VEHICLES: &'static [VehicleSpec] = &[
         },
         epa_miles: 358.0,
     },
+    VehicleSpec {
+        name: "Rivian R1S Standard Pack",
+        battery_max: Energy::from_kwh(105.0),
+        charge_curve: ChargeCurve {
+            data_points: Cow::Borrowed(&[
+                // There might be a revised charge curve for 2023 but I can't find a full sample
+                CurvePoint::new(0.0, 100.0),
+                CurvePoint::new(1.0, 190.0),
+                CurvePoint::new(47.0, 230.0),
+                CurvePoint::new(50.0, 173.0),
+                CurvePoint::new(55.0, 147.0),
+                CurvePoint::new(57.0, 175.0),
+                CurvePoint::new(60.0, 145.0),
+                CurvePoint::new(70.0, 75.0),
+                CurvePoint::new(80.0, 75.0),
+                CurvePoint::new(100.0, 15.0),
+            ]),
+        },
+        epa_miles: 352.0,
+    },
 ];
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
@@ -636,7 +656,7 @@ fn VehicleChooser(
                         "ADD +"
                     </button>
                 </div>
-                <ChargeCurve spec=vehicle_spec />
+                <ChargeCurve spec=vehicle_spec start_soc=start_energy end_soc=unplug_at />
             </div>
     }
 }
@@ -736,7 +756,7 @@ fn ChargerBuilder(
                         })>"Split"</button>
                         <button class=move || if matches!(load_share(), LoadSharingStrategy::Granular { .. }) { btn_active } else { btn_inactive  }  on:click=move |_| load_share.set(LoadSharingStrategy::Granular {
                             number_of_plugs: 8,
-                            power_step: Power::from_kw(50.0),
+                            power_step: Power::from_kw(25.0),
                             max_per_plug: Power::from_kw(400.0),
                         })>"Granular"</button>
                         <div class="grid grid-cols-2 gap-1" class:collapse=move || number_of_plugs().is_none()>
@@ -810,15 +830,24 @@ fn ChargerList(
 }
 
 #[component]
-fn ChargeCurve(#[prop(into)] spec: Signal<Option<&'static VehicleSpec>>) -> impl IntoView {
+fn ChargeCurve(
+    #[prop(into)] spec: Signal<Option<&'static VehicleSpec>>,
+    #[prop(into)] start_soc: Signal<PercentFull>,
+    #[prop(into)] end_soc: Signal<PercentFull>,
+) -> impl IntoView {
     let dark_mode = use_preferred_dark();
     create_effect(move |_| {
+        let start_soc = start_soc();
+        let end_soc = end_soc();
         if let Some(spec) = spec() {
             #[cfg(feature = "hydrate")]
             {
                 use charming::{
-                    component::{Axis, Legend, Title},
-                    element::{AxisLabel, AxisType, NameLocation},
+                    component::{Axis, Legend, Title, VisualMap, VisualMapPiece, VisualMapType},
+                    element::{
+                        AreaStyle, AxisLabel, AxisType, Label, LineStyle, MarkLine, MarkLineData,
+                        MarkLineVariant, NameLocation, Symbol,
+                    },
                     series::Line,
                     WasmRenderer,
                 };
@@ -844,12 +873,38 @@ fn ChargeCurve(#[prop(into)] spec: Signal<Option<&'static VehicleSpec>>) -> impl
                             .name_gap(25.0)
                             .axis_label(AxisLabel::new().show(true)),
                     )
+                    .visual_map(
+                        VisualMap::new()
+                            .type_(VisualMapType::Piecewise)
+                            .show(false)
+                            .dimension(0)
+                            .series_index(0)
+                            .pieces(vec![VisualMapPiece::new()
+                                .gt(start_soc.as_float())
+                                .lt(end_soc.as_float())])
+                            .color(vec!["#5373BB70"]),
+                    )
                     .series(
                         Line::new()
                             .name(spec.name)
                             .data(points)
                             .smooth(0.5)
-                            .show_symbol(false),
+                            .show_symbol(false)
+                            .line_style(LineStyle::new().width(4.0).color("#5373BB"))
+                            .mark_line(
+                                MarkLine::new()
+                                    .symbol(vec![Symbol::None, Symbol::None])
+                                    .label(Label::new().show(false))
+                                    .data(vec![
+                                        MarkLineVariant::Simple(
+                                            MarkLineData::new().x_axis(start_soc.as_float()),
+                                        ),
+                                        MarkLineVariant::Simple(
+                                            MarkLineData::new().x_axis(end_soc.as_float()),
+                                        ),
+                                    ]),
+                            )
+                            .area_style(AreaStyle::new()),
                     )
                     .legend(Legend::new());
                 let html = WasmRenderer::new(720, 400);
@@ -1198,13 +1253,17 @@ fn SimulationChart(
         #[cfg(feature = "hydrate")]
         {
             use charming::{
-                component::{Axis, Legend, LegendType, Title},
-                element::{AxisLabel, AxisType, NameLocation, Orient, Tooltip},
+                component::{
+                    Axis, Feature, Grid, Legend, LegendType, Restore, SaveAsImage, Title, Toolbox,
+                    ToolboxDataZoom,
+                },
+                element::{AxisLabel, AxisType, LineStyle, NameLocation, Orient, Tooltip, Trigger},
                 series::Line,
                 WasmRenderer,
             };
             let mut chart = charming::Chart::new()
                 .title(Title::new().text("Charging data"))
+                .grid(Grid::new().right(250).left(62.0).top(62.0).bottom(62.0))
                 .x_axis(
                     Axis::new()
                         .name("Time in minutes")
@@ -1221,14 +1280,30 @@ fn SimulationChart(
                         .name_gap(50.0)
                         .axis_label(AxisLabel::new().formatter("{value} kw").show(true)),
                 )
+                .y_axis(
+                    Axis::new()
+                        .name("Energy Dispensed (kwh)")
+                        .type_(AxisType::Value)
+                        .name_location(NameLocation::Center)
+                        .name_gap(25.0)
+                        .axis_label(AxisLabel::new().formatter("{value} kwH").show(true)),
+                )
                 .legend(
                     Legend::new()
                         .type_(LegendType::Scroll)
                         .orient(Orient::Vertical)
-                        .right(10.0)
+                        .right(0.0)
                         .top("center"),
                 )
-                .tooltip(Tooltip::new());
+                .tooltip(Tooltip::new().trigger(Trigger::Axis))
+                .toolbox(
+                    Toolbox::new().show(true).feature(
+                        Feature::new()
+                            .data_zoom(ToolboxDataZoom::new().y_axis_index("none"))
+                            .restore(Restore::new())
+                            .save_as_image(SaveAsImage::new().show(true)),
+                    ),
+                );
             for car in vehicle_curves {
                 let SimVehicleSeriesData { spec, id, data } = car;
                 chart = chart.series(
@@ -1261,7 +1336,8 @@ fn SimulationChart(
                     .name("Energy Dispensed (kwH)")
                     .data(energy_dispensed)
                     .smooth(0.5)
-                    .show_symbol(false),
+                    .show_symbol(false)
+                    .y_axis_index(1),
             );
 
             let html = WasmRenderer::new(1080, 500);
