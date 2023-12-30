@@ -9,6 +9,7 @@ use leptos_use::{
     core::Size, use_element_size, use_element_size_with_options, use_media_query,
     use_preferred_dark, UseElementSizeOptions, UseElementSizeReturn,
 };
+use log::info;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
@@ -1049,6 +1050,18 @@ impl ChargingVehicle {
     }
 }
 
+trait IntDivCeil {
+    /// divide and round up
+    fn div_up(&self, other: Self) -> Self;
+}
+
+impl IntDivCeil for i32 {
+    fn div_up(&self, other: Self) -> Self {
+        let rem = self % other;
+        self / other + (rem != 0) as i32
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 struct Charger {
     grid_connection: Power,
@@ -1141,28 +1154,29 @@ impl Charger {
                 max_per_plug,
                 ..
             } => {
-                let mut allocated_power = self
+                let total_steps = self.grid_connection.watts / power_step.watts;
+                let mut power_steps_allocated = self
                     .currently_charging
                     .iter()
-                    .map(|c| power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil())
-                    .sum::<Power>();
-                let total_power = self.grid_connection;
+                    .map(|c| c.allocated_power.watts.div_up(power_step.watts))
+                    .sum::<i32>();
+                
                 self.currently_charging.retain_mut(|c| {
-                    if let Some(power) = c.vehicle.get_next_power_request(
-                        (c.allocated_power + (total_power - allocated_power)).min(max_per_plug),
-                    ) {
-                        let previous_rounded_power =
-                            power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil();
-                        let current_rounded_power =
-                            power_step * (power.as_kw() / power_step.as_kw()).ceil();
-                        // 250 + 300 - 250 = 300
-                        allocated_power += current_rounded_power - previous_rounded_power;
+                    let is_valid = (total_steps - power_steps_allocated > 0) as i32;
+                    let available_power = c.allocated_power + (power_step * is_valid).min(max_per_plug);
+                    if let Some(power) = c.vehicle.get_next_power_request(available_power) {
+                        let old_power_steps = c.allocated_power.watts.div_up(power_step.watts);
+                        let new_power_steps = power.watts.div_up(power_step.watts);
+                        let next_power_steps = power_steps_allocated + new_power_steps - old_power_steps;
+                        if total_steps < next_power_steps {
+                            return true;
+                        }
+                        power_steps_allocated = next_power_steps;
                         c.allocated_power = power;
                         true
                     } else {
                         // return our power to the pool
-                        allocated_power +=
-                            power_step * (c.allocated_power.as_kw() / power_step.as_kw()).ceil();
+                        power_steps_allocated += c.allocated_power.watts.div_up(power_step.watts);
                         false
                     }
                 });
@@ -1241,7 +1255,7 @@ impl Sim {
                 ChargerFrame {
                     charger_id,
                     active_power,
-                    unused_power: (charger.grid_connection - active_power).max(Power::from_kw(0.0)), // disallow negatives
+                    unused_power: (charger.grid_connection - active_power),
                 }
             })
             .collect();
@@ -1362,7 +1376,7 @@ fn SimulationChart(
                     Axis, Feature, Grid, Legend, LegendType, Restore, SaveAsImage, Title, Toolbox,
                     ToolboxDataZoom,
                 },
-                element::{AxisLabel, AxisType, NameLocation, Orient, Tooltip, Trigger},
+                element::{AxisLabel, AxisType, NameLocation, Orient, Tooltip, Trigger, LineStyle, MarkArea},
                 series::Line,
                 WasmRenderer,
             };
@@ -1440,6 +1454,8 @@ fn SimulationChart(
                         .name(format!("#{} charger unused power", id + 1))
                         .data(unused_power)
                         .smooth(0.5)
+                        .mark_area(MarkArea::new())
+                        .line_style(LineStyle::new().width(1.0))
                         .show_symbol(false),
                 );
             }
@@ -1470,7 +1486,7 @@ fn SimulationChart(
             .unwrap();
         }
     });
-    view! {<div class="w-full h-screen md:h-[500px]" node_ref=node>
+    view! {<div class="w-full h-screen md:h-[750px]" node_ref=node>
         {move || {
             prefers_dark();
             let _ = width();
