@@ -21,7 +21,7 @@ fn shell(options: LeptosOptions) -> impl IntoView {
                 <HydrationScripts options />
                 <MetaTags />
             </head>
-            <body class="bg-neutral-100 dark:bg-neutral-950 text-base text-neutral-900 dark:text-neutral-200">
+            <body class="bg-amber-50 dark:bg-slate-900 text-base text-slate-800 dark:text-amber-50">
                 <App />
             </body>
         </html>

@@ -1,2 +1,29 @@
 
-html{scroll-behavior: smooth;}
+html {
+  scroll-behavior: smooth;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #f59e0b, #f97316, #e11d48);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-link {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #f59e0b, #14b8a6);
+    transition: width 0.3s ease;
+    border-radius: 1px;
+  }
+  &:hover::after {
+    width: 100%;
+  }
+}

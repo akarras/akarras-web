@@ -709,8 +709,8 @@ fn VehicleChooser(
                         <span>{move || format!("estimated charge time: {:.2} mins", (estimated_charge_time().as_secs_f64() / 60.0))}</span>
                     </div>
                     <div class:invisible=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
-                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Charge start battery%: "{move || start_energy().to_string()}" "{move || (start_energy() * specs().battery_max).to_string()}</label>
-                        <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || start_energy().as_float().to_string() on:input=move |e| {
+                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">"Charge start battery%: "{move || start_energy().to_string()}" "{move || (start_energy() * specs().battery_max).to_string()}</label>
+                        <input id="battery-soc" type="range" class="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-600 accent-amber-500 dark:accent-teal-500" prop:value=move || start_energy().as_float().to_string() on:input=move |e| {
                             if let Ok(value) = event_target_value(&e).parse() {
                                 if unplug_at.get_untracked().as_float() < value {
                                     set_unplug_at(PercentFull::new((value + 5.0).min(100.0)));
@@ -720,8 +720,8 @@ fn VehicleChooser(
                         }/>
                     </div>
                     <div class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="flex flex-col">
-                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">"Unplug at Battery SOC%: "{move || unplug_at().to_string()}" "{move || (unplug_at() * specs().battery_max).to_string()}</label>
-                        <input id="battery-soc" type="range" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" prop:value=move || unplug_at().as_float().to_string() on:input=move |e| {
+                        <label for="battery-soc" class="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">"Unplug at Battery SOC%: "{move || unplug_at().to_string()}" "{move || (unplug_at() * specs().battery_max).to_string()}</label>
+                        <input id="battery-soc" type="range" class="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-600 accent-amber-500 dark:accent-teal-500" prop:value=move || unplug_at().as_float().to_string() on:input=move |e| {
                             if let Ok(value) = event_target_value(&e).parse() {
                                 if start_energy.get_untracked().as_float() > value {
                                     set_start_energy(PercentFull::new((value - 5.0).max(0.0)));
@@ -730,7 +730,7 @@ fn VehicleChooser(
                             }
                         }/>
                     </div>
-                    <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                    <button class:collapse=move || vehicle_spec.with(|spec| spec.is_none()) class="bg-amber-500 dark:bg-teal-600 text-white p-2 border border-amber-600 dark:border-teal-500 hover:bg-amber-600 dark:hover:bg-teal-500 rounded-lg font-medium transition-colors"
                         on:click=move |_| {
                             if let Some(current) = vehicle_spec.get_untracked() {
                                 let mut vehicles = vehicles();
@@ -761,7 +761,7 @@ fn VehicleList(
                 let:vehicle>
                 <div class="col-span-2">{vehicle.1.spec.name.clone()}</div>
                 <div>{vehicle.1.soc().to_string()}" -> "{vehicle.1.unplug_at_soc().to_string()}</div>
-                <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| { let mut vehicles = vehicles(); vehicles.remove(vehicle.0); set_vehicles(vehicles); }>"X"</button>
+                <button class="hover:bg-red-500 bg-red-600 rounded-lg w-10 border border-red-700 text-white transition-colors" on:click=move |_| { let mut vehicles = vehicles(); vehicles.remove(vehicle.0); set_vehicles(vehicles); }>"X"</button>
             </For>
 
         </div>
@@ -810,8 +810,8 @@ fn ChargerBuilder(
         });
     };
     let btn_active =
-        "rounded-sm bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-600";
-    let btn_inactive = "rounded-sm bg-gray-400 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-1 border border-gray-300 dark:border-gray-600";
+        "rounded-lg bg-amber-100 dark:bg-teal-900 p-1.5 border border-amber-400 dark:border-teal-500 font-medium";
+    let btn_inactive = "rounded-lg bg-white dark:bg-slate-700 hover:bg-amber-50 dark:hover:bg-slate-600 p-1.5 border border-slate-300 dark:border-slate-500 transition-colors";
     view! {
         <div class="flex flex-col">
                 <h4 class="text-xl">"Add Charger: "</h4>
@@ -820,7 +820,7 @@ fn ChargerBuilder(
                         "Grid Connection: "{move || grid_connection().to_string()}
                     </div>
                     <div>
-                        <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36" value=grid_connection.get_untracked().as_kw() on:input=move |e| {
+                        <input class="dark:bg-slate-700 bg-white hover:bg-amber-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg p-1 w-36 transition-colors" value=grid_connection.get_untracked().as_kw() on:input=move |e| {
                             if let Ok(kwh) = event_target_value(&e).parse::<f64>() {
                                 set_grid_connection(Power::from_kw(kwh));
                             }
@@ -845,7 +845,7 @@ fn ChargerBuilder(
                                 "Number of plugs:"
                                 {move || number_of_plugs().unwrap_or(1)}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || number_of_plugs().unwrap_or_default() on:input=move |e| {
+                            <input class="dark:bg-slate-700 bg-white hover:bg-amber-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg p-1 w-36 shrink transition-colors" prop:value=move || number_of_plugs().unwrap_or_default() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_number_of_plugs(value);
                                 }
@@ -857,7 +857,7 @@ fn ChargerBuilder(
                                 "Power step:"
                                 {move || power_step().unwrap_or(Power::from_kw(1.0)).to_string()}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || power_step().unwrap_or_default().as_kw() on:input=move |e| {
+                            <input class="dark:bg-slate-700 bg-white hover:bg-amber-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg p-1 w-36 shrink transition-colors" prop:value=move || power_step().unwrap_or_default().as_kw() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_power_step(Power::from_kw(value));
                                 }
@@ -866,14 +866,14 @@ fn ChargerBuilder(
                                 "Max per plug:"
                                 {move || max_per_plug().unwrap_or(Power::from_kw(1.0)).to_string()}
                             </span>
-                            <input class="dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700 w-36 shrink" prop:value=move || max_per_plug().unwrap_or_default().as_kw() on:input=move |e| {
+                            <input class="dark:bg-slate-700 bg-white hover:bg-amber-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg p-1 w-36 shrink transition-colors" prop:value=move || max_per_plug().unwrap_or_default().as_kw() on:input=move |e| {
                                 if let Ok(value) = event_target_value(&e).parse() {
                                     set_max_per_plug(Power::from_kw(value));
                                 }
                             }/>
                         </div>
                     </div>
-                    <button class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500" on:click=move |_| {
+                    <button class="bg-amber-500 dark:bg-teal-600 text-white hover:bg-amber-600 dark:hover:bg-teal-500 rounded-lg p-2 font-medium transition-colors" on:click=move |_| {
                         let strategy = load_share.get_untracked();
                         let mut chargers = chargers();
                         chargers.push(Charger::new(grid_connection.get_untracked(), strategy));
@@ -896,7 +896,7 @@ fn ChargerList(
             <For each=move || chargers.get().into_iter().enumerate()
             key=|(i, c)| (*i, c.grid_connection.watts, format!("{:?}", c.strategy))
             let:charger>
-            <div class="p-1 flex flex-row rounded gap-1 bg-gray-300 dark:bg-gray-700 border border-solid border-gray-500">
+            <div class="p-2 flex flex-row rounded-lg gap-1 bg-white dark:bg-slate-800 border-l-4 border-amber-400 dark:border-teal-500 shadow-sm">
                 "Grid power: "{charger.1.grid_connection.to_string()}<br/>
                 {match charger.1.strategy {
                     LoadSharingStrategy::None => "None".into_any(),
@@ -912,7 +912,7 @@ fn ChargerList(
                     </div>}.into_any(),
                 }}
             </div>
-            <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| {
+            <button class="hover:bg-red-500 bg-red-600 rounded-lg w-10 border border-red-700 text-white transition-colors" on:click=move |_| {
                 let mut chargers = chargers();
                 chargers.remove(charger.0);
                 set_chargers(chargers);
@@ -1634,7 +1634,7 @@ pub fn VehicleSim() -> impl IntoView {
         <Title text="DC Fast Charger Sim" />
         <div class="flex flex-col gap-2">
             <div class="flex flex-col gap-1">
-                <h2 class="text-2xl">"DC Fast Charging Simulator"</h2>
+                <h2 class="text-3xl font-bold gradient-text">"DC Fast Charging Simulator"</h2>
                 <span>"Simulate real charging time for electric vehicles in the real world with a variety of fast chargers."</span>
             </div>
             <div class="flex flex-col gap-1">

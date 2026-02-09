@@ -9,8 +9,8 @@ use leptos::prelude::*;
 #[component]
 pub(crate) fn Card(children: Children) -> impl IntoView {
     view! {
-        <div class="border-solid border-neutral-100 dark:border-neutral-950 border-2 shadow-md p-4 m-2 rounded-md bg-neutral-300 dark:bg-neutral-950
-            dark:hover:border-red-300 hover:border-red-700 dark:hover:bg-gray-900 ease-in-out duration-300">
+        <div class="border-l-4 border-amber-400 dark:border-teal-500 shadow-md hover:shadow-lg p-5 m-2 rounded-xl bg-white dark:bg-slate-800
+            hover:-translate-y-0.5 transition-all duration-300">
             {children()}
         </div>
     }

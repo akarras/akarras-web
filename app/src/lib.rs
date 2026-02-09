@@ -29,15 +29,15 @@ pub fn App() -> impl IntoView {
         // content for this welcome page
         <Router>
             <div class="container mx-auto px-4">
-                <nav class="p-4 flex flex-row align-items-middle justify-items-stretch gap-4 flex-wrap">
-                    <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="/" exact=true>"home"</A>
-                    <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="projects">"projects"</A>
-                    <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="photos">"photos"</A>
-                    <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="toys">"toys"</A>
+                <nav class="py-6 px-4 flex flex-row items-center gap-6 flex-wrap text-lg">
+                    <A attr:class="nav-link aria-current:font-bold aria-current:text-amber-600 dark:aria-current:text-teal-400 hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="/" exact=true>"home"</A>
+                    <A attr:class="nav-link aria-current:font-bold aria-current:text-amber-600 dark:aria-current:text-teal-400 hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="projects">"projects"</A>
+                    <A attr:class="nav-link aria-current:font-bold aria-current:text-amber-600 dark:aria-current:text-teal-400 hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="photos">"photos"</A>
+                    <A attr:class="nav-link aria-current:font-bold aria-current:text-amber-600 dark:aria-current:text-teal-400 hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="toys">"toys"</A>
                     <div class="grow"></div>
-                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
-                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="https://github.com/akarras">"github"</a>
-                    <a class="hover:text-neutral-800 dark:hover:text-neutral-300" href="mailto:aaron@akarras.com">"email"</a>
+                    <a class="nav-link hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="https://www.linkedin.com/in/adkarras">"linkedin"</a>
+                    <a class="nav-link hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="https://github.com/akarras">"github"</a>
+                    <a class="nav-link hover:text-amber-600 dark:hover:text-teal-400 transition-colors" href="mailto:aaron@akarras.com">"email"</a>
                 </nav>
                 <main>
                     <Routes fallback=|| "Not found.">

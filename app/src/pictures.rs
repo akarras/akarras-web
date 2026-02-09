@@ -43,7 +43,7 @@ pub(crate) fn Pictures() -> impl IntoView {
         Resource::new(move || {}, move |_| get_pictures(Some(PhotoSize::Large)));
 
     view! {  <div>
-        <a class="text-2xl font-bold" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
+        <a class="text-2xl font-bold text-amber-600 dark:text-teal-400 hover:underline" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
         <div class="relative flex flex-col h-[calc(95vh-20px)] snap-y snap-mandatory overflow-y-auto">
             <Suspense fallback=move || view!{ "loading"}>
                 {move || {
@@ -53,8 +53,8 @@ pub(crate) fn Pictures() -> impl IntoView {
                     pictures.map(|p| {
                         p.recent_pictures.into_iter().map(|p| view!{
                             <a href=format!("https://www.flickr.com/photos/198236541@N06/{}/in/dateposted-public/", p.id)
-                                class="snap-center snap-always m-5 hover:border-red-600 dark:hover:border-red-300">
-                                <img class="object-contain max-h-[calc(100vh-100px)] max-w-screen" src=p.url />
+                                class="snap-center snap-always m-5 flex items-center justify-center hover:ring-2 hover:ring-amber-400 dark:hover:ring-teal-400 rounded-xl transition-all duration-300">
+                                <img class="object-contain max-h-[calc(100vh-100px)] max-w-full rounded-xl" src=p.url />
                             </a>
                         }).collect::<Vec<_>>()
                     })
@@ -79,7 +79,7 @@ pub(crate) fn SmallPhotos() -> impl IntoView {
                     let pictures = pictures.map(|p| p.ok()).flatten();
                     pictures.map(|p| {
                         p.recent_pictures.into_iter().map(|p| view!{
-                            <div class="snap-center snap-always m-5 hover:border-red-600 dark:hover:border-red-300">
+                            <div class="snap-center snap-always m-5 rounded-lg overflow-hidden hover:ring-2 hover:ring-amber-400 dark:hover:ring-teal-400 transition-all duration-300">
                                 <img class="object-contain h-56" src=p.url />
                             </div>
                         }).collect::<Vec<_>>()

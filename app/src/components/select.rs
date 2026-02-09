@@ -71,7 +71,7 @@ where
         <div class="relative">
             <input node_ref=input
                 class:cursor=move || !has_focus()
-                class="p-2 rounded-md bg-gray-200 dark:bg-gray-800 border-solid border border-gray-500 w-96 hover:bg-gray-300 dark:hover:bg-gray-700 hover:border-neutral-400 dark:hover:border-neutral-600"
+                class="p-2 rounded-lg bg-white dark:bg-slate-700 border-solid border border-slate-300 dark:border-slate-500 w-96 hover:bg-amber-50 dark:hover:bg-slate-600 hover:border-amber-400 dark:hover:border-teal-500 transition-colors"
                 on:focus=move |_| set_focused(true)
                 on:focusout=move |_| set_focused(false)
                 on:input=move |e| { set_current_input(event_target_value(&e)); }
@@ -86,7 +86,7 @@ where
                 })}
             </div>
             <div node_ref=dropdown class:invisible=move || !has_focus() && !hovered()
-                class="focus-within:visible absolute w-96 h-96 overflow-y-auto top-10 bg-gray-100 dark:bg-gray-950 z-20">
+                class="focus-within:visible absolute w-96 h-96 overflow-y-auto top-10 bg-white dark:bg-slate-800 z-20 rounded-lg shadow-lg border border-slate-200 dark:border-slate-600">
                 <For each=final_result
                     key=move |(l, _)| *l
                     let:data
@@ -103,7 +103,7 @@ where
                             }
                         }
                     }>
-                        <div class="hover:bg-gray-300 dark:hover:bg-gray-700 hover:border-solid hover:border-neutral-200 dark:hover:border-neutral-600 rounded-sm p-2" class:bg-gray-500=move || {
+                        <div class="hover:bg-amber-50 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors" class:bg-amber-100=move || {
                             choice.with(|choice| choice.as_ref().and_then(|choice| items.with(|i| i.get(data.0).map(|item| item == choice)))).unwrap_or_default()
                         }>{items.with(|i| i.get(data.0).cloned()).map(|c| {move || {
                             let view = if let Some(m) = fuzzy_search(&current_input(), &data.1){
