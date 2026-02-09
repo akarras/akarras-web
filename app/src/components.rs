@@ -4,7 +4,6 @@ mod select;
 pub use match_formatter::MatchFormatter;
 pub use select::Select;
 
-use comrak::{markdown_to_html, ComrakOptions};
 use leptos::prelude::*;
 
 #[component]
@@ -14,13 +13,5 @@ pub(crate) fn Card(children: Children) -> impl IntoView {
             dark:hover:border-red-300 hover:border-red-700 dark:hover:bg-gray-900 ease-in-out duration-300">
             {children()}
         </div>
-    }
-}
-
-#[component]
-pub(crate) fn Markdown(text: String) -> impl IntoView {
-    view! {
-    <div class="prose dark:prose-invert" inner_html=markdown_to_html(&text, &ComrakOptions::default())>
-    </div>
     }
 }

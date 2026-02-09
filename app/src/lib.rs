@@ -1,4 +1,3 @@
-mod blog;
 mod components;
 mod flickr;
 mod home_page;
@@ -8,7 +7,6 @@ mod projects;
 mod toys;
 
 use crate::{
-    blog::*,
     home_page::*,
     pictures::*,
     projects::*,
@@ -16,7 +14,7 @@ use crate::{
 };
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::{components::*, hooks::*, path};
+use leptos_router::{components::*, path};
 
 pub mod error_template;
 
@@ -33,7 +31,6 @@ pub fn App() -> impl IntoView {
             <div class="container mx-auto px-4">
                 <nav class="p-4 flex flex-row align-items-middle justify-items-stretch gap-4 flex-wrap">
                     <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="/" exact=true>"home"</A>
-                    <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="blog">"blog"</A>
                     <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="projects">"projects"</A>
                     <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="photos">"photos"</A>
                     <A attr:class="aria-current:font-bold hover:text-neutral-800 dark:hover:text-neutral-300" href="toys">"toys"</A>
@@ -45,10 +42,6 @@ pub fn App() -> impl IntoView {
                 <main>
                     <Routes fallback=|| "Not found.">
                         <Route path=path!("/") view=HomePage />
-                        <ParentRoute path=path!("/blog") view=Blog>
-                            <Route path=path!("/:slug") view=BlogItem />
-                            <Route path=path!("/") view=BlogList />
-                        </ParentRoute>
                         <Route path=path!("/projects") view=Projects />
                         <Route path=path!("/photos") view=Pictures />
                         <Route path=path!("/toys") view=ToyPage />

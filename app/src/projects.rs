@@ -19,8 +19,8 @@ pub(crate) fn Projects() -> impl IntoView {
                     <a class="underline font-bold text-4xl xl:text-9xl pb-10" href="https://ultros.app">
                         "ultros.app"
                     </a>
-                    <p>"a final fantasy 14 marketboard tool"</p>
-                    <p>"built with leptos and seaorm. still pretty jank."</p>
+                    <p>"a Final Fantasy XIV marketboard tool"</p>
+                    <p>"built with Leptos and SeaORM for tracking prices and sales across servers"</p>
                     <a class="underline" href="https://github.com/akarras/ultros">"github"</a>
                 </div>
             </div>
@@ -31,8 +31,8 @@ pub(crate) fn Projects() -> impl IntoView {
                     <a class="underline font-bold text-4xl xl:text-9xl pb-10" href="https://akarras.github.io/XIVCraftingOptimizer-rs/app/#/simulator">
                         "XIV Crafting Optimizer (in Rust)"
                     </a>
-                    <p>"a tool for simulating crafting recipes & generating macros in final fantasy 14"</p>
-                    <p>"forked from a different project- kind of want to remake tbh."</p>
+                    <p>"a tool for simulating crafting recipes and generating macros in Final Fantasy XIV"</p>
+                    <p>"forked and rewritten in Rust with WebAssembly"</p>
                     <a class="underline" href="https://github.com/akarras/XIVCraftingOptimizer-rs">"github"</a>
                 </div>
             </div>
@@ -43,8 +43,8 @@ pub(crate) fn Projects() -> impl IntoView {
                     <a class="underline font-bold text-4xl xl:text-9xl pb-10" href="https://github.com/akarras/wall-a-bunga">
                         "wall-a-bunga"
                     </a>
-                    <p>"a simple tool to downlaod wallpapers."</p>
-                    <p>"built with iced, was one of my first projects getting into rust."</p>
+                    <p>"a simple tool to download wallpapers"</p>
+                    <p>"built with Iced, one of my first projects getting into Rust"</p>
                 </div>
             </div>
         </div>

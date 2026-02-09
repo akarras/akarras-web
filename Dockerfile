@@ -17,7 +17,6 @@ RUN cargo leptos --manifest-path=./Cargo.toml build --release -vv
 FROM rustlang/rust:nightly-bullseye-slim as runner
 COPY --from=builder /app/target/release/server /app/
 COPY --from=builder /app/target/site /app/site
-COPY --from=builder /app/blog /app/blog
 COPY --from=builder /app/Cargo.toml /app/
 WORKDIR /app
 ENV RUST_LOG="info"

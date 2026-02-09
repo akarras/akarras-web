@@ -15,9 +15,7 @@ http.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
 serde.workspace = true
-chrono.workspace = true
 tokio = { workspace = true, optional = true }
-comrak.workspace = true
 itertools.workspace = true
 reqwest = { workspace = true, optional = true }
 retainer = { workspace = true, optional = true }
