@@ -1,7 +1,7 @@
 use crate::blog::BlogList;
 use crate::components::Card;
 use crate::pictures::SmallPhotos;
-use leptos::*;
+use leptos::prelude::*;
 
 /// Renders the home page of your application.
 #[component]

@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use sublime_fuzzy::Match;
 
 /// Leptos version of sublime_fuzzy::format_simple
@@ -17,13 +17,13 @@ pub fn MatchFormatter(m: Match, target: String) -> impl IntoView {
                 .skip(last_end)
                 .take(c.start() - last_end)
                 .collect::<String>()}}
-            .into_view(),
+            .into_any(),
         );
 
         // This match
         pieces.push(
             view! {<b>{target.chars().skip(c.start()).take(c.len()).collect::<String>()}</b>}
-                .into_view(),
+                .into_any(),
         );
 
         last_end = c.start() + c.len();
@@ -36,7 +36,7 @@ pub fn MatchFormatter(m: Match, target: String) -> impl IntoView {
                 .chars()
                 .skip(last_end)
                 .collect::<String>()
-                .into_view(),
+                .into_any(),
         );
     }
 

@@ -2,9 +2,10 @@ use base64::{engine::general_purpose, Engine};
 use const_soft_float::soft_f64::SoftF64;
 use flate2::{read::DeflateDecoder, write::DeflateEncoder, Compression};
 use itertools::Itertools;
-use leptos::*;
+use leptos::{html, prelude::*};
 use leptos_meta::{Script, Title};
-use leptos_router::{use_location, use_navigate, NavigateOptions};
+use leptos_router::hooks::{use_location, use_navigate};
+use leptos_router::NavigateOptions;
 use leptos_use::{
     core::Size, use_element_size, use_element_size_with_options, use_media_query,
     use_preferred_dark, UseElementSizeOptions, UseElementSizeReturn,
@@ -658,7 +659,7 @@ fn VehicleDropdown(
     #[prop(into)] current_vehicle: Signal<Option<&'static VehicleSpec>>,
     #[prop(into)] set_vehicle: SignalSetter<Option<&'static VehicleSpec>>,
 ) -> impl IntoView {
-    let vehicles = create_rw_signal(
+    let vehicles = RwSignal::new(
         VEHICLES
             .into_iter()
             .map(|vehicle_spec| vehicle_spec)
@@ -680,14 +681,14 @@ fn VehicleChooser(
     #[prop(into)] vehicles: Signal<VecDeque<Vehicle>>,
     set_vehicles: SignalSetter<VecDeque<Vehicle>>,
 ) -> impl IntoView {
-    let (vehicle_spec, set_vehicle_spec) = create_signal::<Option<&'static VehicleSpec>>(None);
-    let specs = create_memo(move |_| {
+    let (vehicle_spec, set_vehicle_spec) = signal::<Option<&'static VehicleSpec>>(None);
+    let specs = Memo::new(move |_| {
         vehicle_spec()
             .map(|spec: &VehicleSpec| spec.clone())
             .unwrap_or_default()
     });
-    let (start_energy, set_start_energy) = create_signal(PercentFull::new(10.0));
-    let (unplug_at, set_unplug_at) = create_signal(PercentFull::new(80.0));
+    let (start_energy, set_start_energy) = signal(PercentFull::new(10.0));
+    let (unplug_at, set_unplug_at) = signal(PercentFull::new(80.0));
     let estimated_charge_time = move || {
         (unplug_at() - start_energy()) * specs().battery_max
             / specs()
@@ -772,49 +773,42 @@ fn ChargerBuilder(
     #[prop(into)] chargers: Signal<Vec<Charger>>,
     set_chargers: SignalSetter<Vec<Charger>>,
 ) -> impl IntoView {
-    let (grid_connection, set_grid_connection) = create_signal(Power::from_kw(600.0));
-    let load_share = create_rw_signal(LoadSharingStrategy::None);
-    let (number_of_plugs, set_number_of_plugs) = create_slice(
-        load_share,
-        move |strategy| match strategy {
-            LoadSharingStrategy::None => None,
-            LoadSharingStrategy::Paired { number_of_plugs } => Some(*number_of_plugs),
-            LoadSharingStrategy::Split { number_of_plugs } => Some(*number_of_plugs),
-            LoadSharingStrategy::Granular {
-                number_of_plugs, ..
-            } => Some(*number_of_plugs),
-        },
-        move |strategy, plugs| match strategy {
+    let (grid_connection, set_grid_connection) = signal(Power::from_kw(600.0));
+    let load_share = RwSignal::new(LoadSharingStrategy::None);
+    let number_of_plugs = Memo::new(move |_| match load_share.get() {
+        LoadSharingStrategy::None => None,
+        LoadSharingStrategy::Paired { number_of_plugs } => Some(number_of_plugs),
+        LoadSharingStrategy::Split { number_of_plugs } => Some(number_of_plugs),
+        LoadSharingStrategy::Granular { number_of_plugs, .. } => Some(number_of_plugs),
+    });
+    let set_number_of_plugs = move |plugs: u32| {
+        load_share.update(|strategy| match strategy {
             LoadSharingStrategy::None => {}
             LoadSharingStrategy::Paired { number_of_plugs } => *number_of_plugs = plugs,
             LoadSharingStrategy::Split { number_of_plugs } => *number_of_plugs = plugs,
-            LoadSharingStrategy::Granular {
-                number_of_plugs, ..
-            } => *number_of_plugs = plugs,
-        },
-    );
-    let (power_step, set_power_step) = create_slice(
-        load_share,
-        move |strategy| match strategy {
-            LoadSharingStrategy::Granular { power_step, .. } => Some(*power_step),
-            _ => None,
-        },
-        move |strategy, step| match strategy {
+            LoadSharingStrategy::Granular { number_of_plugs, .. } => *number_of_plugs = plugs,
+        });
+    };
+    let power_step = Memo::new(move |_| match load_share.get() {
+        LoadSharingStrategy::Granular { power_step, .. } => Some(power_step),
+        _ => None,
+    });
+    let set_power_step = move |step: Power| {
+        load_share.update(|strategy| match strategy {
             LoadSharingStrategy::Granular { power_step, .. } => *power_step = step,
             _ => {}
-        },
-    );
-    let (max_per_plug, set_max_per_plug) = create_slice(
-        load_share,
-        move |strategy| match strategy {
-            LoadSharingStrategy::Granular { max_per_plug, .. } => Some(*max_per_plug),
-            _ => None,
-        },
-        move |strategy, per_plug| match strategy {
+        });
+    };
+    let max_per_plug = Memo::new(move |_| match load_share.get() {
+        LoadSharingStrategy::Granular { max_per_plug, .. } => Some(max_per_plug),
+        _ => None,
+    });
+    let set_max_per_plug = move |per_plug: Power| {
+        load_share.update(|strategy| match strategy {
             LoadSharingStrategy::Granular { max_per_plug, .. } => *max_per_plug = per_plug,
             _ => {}
-        },
-    );
+        });
+    };
     let btn_active =
         "rounded-sm bg-gray-300 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-600";
     let btn_inactive = "rounded-sm bg-gray-400 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-1 border border-gray-300 dark:border-gray-600";
@@ -905,17 +899,17 @@ fn ChargerList(
             <div class="p-1 flex flex-row rounded gap-1 bg-gray-300 dark:bg-gray-700 border border-solid border-gray-500">
                 "Grid power: "{charger.1.grid_connection.to_string()}<br/>
                 {match charger.1.strategy {
-                    LoadSharingStrategy::None => "None".into_view(),
-                    LoadSharingStrategy::Paired { number_of_plugs } => format!("Paired - {number_of_plugs}").into_view(),
+                    LoadSharingStrategy::None => "None".into_any(),
+                    LoadSharingStrategy::Paired { number_of_plugs } => format!("Paired - {number_of_plugs}").into_any(),
                     LoadSharingStrategy::Split { number_of_plugs } => view!{ <div class="flex flex-col">
                         <span>"Even split"</span>
-                        <span>"Number of plugs: "{number_of_plugs}</span></div>}.into_view(),
+                        <span>"Number of plugs: "{number_of_plugs}</span></div>}.into_any(),
                     LoadSharingStrategy::Granular { power_step, number_of_plugs, max_per_plug } => view!{<div class="flex flex-col">
                         <span>"Incremental Share"</span>
                         <span>"Power step size: "{power_step.as_kw()}</span>
                         <span>"Number of plugs: "{number_of_plugs}</span>
                         <span>"Max per plug: "{max_per_plug.as_kw()}</span>
-                    </div>}.into_view(),
+                    </div>}.into_any(),
                 }}
             </div>
             <button class="hover:bg-red-500 bg-red-600 rounded w-10 border border-gray-500" on:click=move |_| {
@@ -934,10 +928,10 @@ fn ChargeCurve(
     #[prop(into)] start_soc: Signal<PercentFull>,
     #[prop(into)] end_soc: Signal<PercentFull>,
 ) -> impl IntoView {
-    let container = create_node_ref::<html::Div>();
+    let container = NodeRef::<html::Div>::new();
     let UseElementSizeReturn { width, height } = use_element_size(container);
     let dark_mode = use_preferred_dark();
-    create_effect(move |_| {
+    Effect::new(move |_| {
         let start_soc = start_soc();
         let end_soc = end_soc();
         let desired_width = (width() - 5.0).max(100.0) as u32;
@@ -1349,7 +1343,7 @@ fn SimulationChart(
     data: Signal<Vec<SimFrame>>,
     prefers_dark: Signal<bool>,
 ) -> impl IntoView {
-    let node = create_node_ref::<html::Div>();
+    let node = NodeRef::<html::Div>::new();
     let UseElementSizeReturn { width, height } = use_element_size_with_options(
         node,
         UseElementSizeOptions::default().initial_size(Size {
@@ -1358,7 +1352,7 @@ fn SimulationChart(
         }),
     );
     let is_large = use_media_query("(min-width: 728px)");
-    create_effect(move |_| {
+    Effect::new(move |_| {
         let desired_width = (width() - 10.0).max(100.0) as u32;
         let desired_height = (height() - 10.0).max(100.0) as u32;
         let vehicles = vehicles();
@@ -1507,7 +1501,7 @@ fn Simulation(
     {
         move || {
             let v = vehicles();
-            let (vehicles_signal, _) = create_signal(
+            let (vehicles_signal, _) = signal(
                 v.iter()
                     .flat_map(|v| v.spec.borrow().try_into())
                     .collect::<Vec<_>>(),
@@ -1529,7 +1523,7 @@ fn Simulation(
                 let total_energy_dispensed =
                     steps.iter().map(|s| s.energy_dispensed).sum::<Energy>();
                 let total_time_spent = steps.last().map(|s| s.duration).unwrap_or_default();
-                let (steps_signal, _) = create_signal(steps.clone());
+                let (steps_signal, _) = signal(steps.clone());
                 view!{
                     <SimulationChart vehicles=vehicles_signal.into() data=steps_signal.into() prefers_dark />
                     <div class="flex flex-row flex-wrap gap-4 text-md">
@@ -1552,9 +1546,9 @@ fn Simulation(
                 //         <div>{s.plugs_unused}</div>
                 //     }).collect_view()}
                 // </div>
-            }.into_view()
+            }.into_any()
             } else {
-                view! { "Add chargers and vehicles to get started" }.into_view()
+                view! { "Add chargers and vehicles to get started" }.into_any()
             }
         }
     }
@@ -1566,13 +1560,13 @@ struct Query {
     vehicles: VecDeque<Vehicle>,
 }
 
-fn create_compressed_query<T: DeserializeOwned + Serialize + PartialEq + Default>(
+fn create_compressed_query<T: DeserializeOwned + Serialize + PartialEq + Default + Send + Sync>(
 ) -> (Memo<T>, SignalSetter<T>) {
     let location = use_location();
     let navigate = use_navigate();
     let search = location.search;
 
-    let get = create_memo(move |_| {
+    let get = Memo::new(move |_| {
         match search.with::<Result<_, Box<dyn std::error::Error>>>(|query_string| {
             let str = general_purpose::URL_SAFE.decode(query_string)?;
             let mut decompress_out = Vec::new();
@@ -1613,17 +1607,17 @@ fn create_sub_slice<T, S, F, F2, O>(
 ) -> (Memo<O>, SignalSetter<O>)
 where
     S: Into<Signal<T>>,
-    F: Fn(&T) -> &O + 'static,
-    F2: Fn(&mut T) -> &mut O + 'static,
-    O: PartialEq + Clone,
-    T: Clone,
+    F: Fn(&T) -> &O + Send + Sync + 'static,
+    F2: Fn(&mut T) -> &mut O + Send + Sync + 'static,
+    O: PartialEq + Clone + Send + Sync,
+    T: Clone + Send + Sync,
 {
     let getter: Signal<T> = getter.into();
-    let get = create_memo(move |_| getter.with(|value| get(value).clone()));
+    let get = Memo::new(move |_| getter.with(|value| get(value).clone()));
     let set = SignalSetter::map(move |update| {
-        let mut value = getter();
+        let mut value = getter.get();
         *get_mut(&mut value) = update;
-        setter(value)
+        setter.set(value)
     });
     (get, set)
 }
@@ -1635,7 +1629,7 @@ pub fn VehicleSim() -> impl IntoView {
         create_sub_slice(query, set_query, |q| &q.chargers, |q| &mut q.chargers);
     let (vehicles, set_vehicles) =
         create_sub_slice(query, set_query, |q| &q.vehicles, |q| &mut q.vehicles);
-    let (simulation_time, _) = create_signal(Duration::from_secs(1));
+    let (simulation_time, _) = signal(Duration::from_secs(1));
     view! {
         <Title text="DC Fast Charger Sim" />
         <div class="flex flex-col gap-2">

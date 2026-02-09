@@ -5,7 +5,7 @@ pub use match_formatter::MatchFormatter;
 pub use select::Select;
 
 use comrak::{markdown_to_html, ComrakOptions};
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub(crate) fn Card(children: Children) -> impl IntoView {

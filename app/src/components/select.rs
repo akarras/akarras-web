@@ -1,6 +1,6 @@
 use leptos::{
     html::{Div, Input},
-    *,
+    prelude::*,
 };
 use leptos_use::use_element_hover;
 use sublime_fuzzy::{FuzzySearch, Match, Scoring};
@@ -24,17 +24,17 @@ pub fn Select<T, EF, N, L>(
     children: EF,
 ) -> impl IntoView
 where
-    T: Clone + Eq + 'static,
-    EF: Fn(T) -> N + 'static + Copy,
+    T: Clone + Eq + Send + Sync + 'static,
+    EF: Fn(T) -> N + 'static + Copy + Send + Sync,
     N: IntoView + 'static,
-    L: Fn(&T) -> String + 'static + Copy,
+    L: Fn(&T) -> String + 'static + Copy + Send + Sync,
 {
-    let (current_input, set_current_input) = create_signal("".to_string());
-    let (has_focus, set_focused) = create_signal(false);
-    let dropdown = create_node_ref::<Div>();
-    let input = create_node_ref::<Input>();
+    let (current_input, set_current_input) = signal("".to_string());
+    let (has_focus, set_focused) = signal(false);
+    let dropdown = NodeRef::<Div>::new();
+    let input = NodeRef::<Input>::new();
     let hovered = use_element_hover(dropdown);
-    let labels = create_memo(move |_| {
+    let labels = Memo::new(move |_| {
         items.with(|i| {
             i.iter()
                 .map(|i| as_label(i))
@@ -42,7 +42,7 @@ where
                 .collect::<Vec<_>>()
         })
     });
-    let search_results = create_memo(move |_| {
+    let search_results = Memo::new(move |_| {
         current_input.with(|input| {
             let mut results = labels.with(|s| {
                 s.iter()
@@ -58,7 +58,7 @@ where
                 .collect::<Vec<_>>()
         })
     });
-    let final_result = create_memo(move |_| {
+    let final_result = Memo::new(move |_| {
         let search_results = search_results();
         if search_results.is_empty() {
             labels()
@@ -77,12 +77,12 @@ where
                 on:input=move |e| { set_current_input(event_target_value(&e)); }
                 prop:value=current_input />
             <div class="absolute top-2 left-2 select-none cursor" class:invisible=move || has_focus() || !current_input().is_empty() on:click=move |_| {
-                if let Some(input) = input() {
+                if let Some(input) = input.get() {
                     let _ = input.focus();
                 }
             }>
-                {move || choice().map(|c| {
-                    as_label(&c).into_view()
+                {move || choice.get().map(|c| {
+                    as_label(&c).into_any()
                 })}
             </div>
             <div node_ref=dropdown class:invisible=move || !has_focus() && !hovered()
@@ -108,15 +108,15 @@ where
                         }>{items.with(|i| i.get(data.0).cloned()).map(|c| {move || {
                             let view = if let Some(m) = fuzzy_search(&current_input(), &data.1){
                                 let target = data.1.clone();
-                                view!{ <div class="flex flex-row"><span><MatchFormatter m=m target=target /></span></div> }
+                                view!{ <div class="flex flex-row"><span><MatchFormatter m=m target=target /></span></div> }.into_any()
                             } else {
-                                view!{ <div class="flex flex-row">{&data.1}</div>}
+                                view!{ <div class="flex flex-row">{data.1.clone()}</div>}.into_any()
                             };
                             view!{
                                 {view}
                                 {children(c.clone())}
                             }
-                        }.into_view()})}</div>
+                        }.into_any()})}</div>
                     </button>
                 </For>
             </div>

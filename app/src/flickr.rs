@@ -63,14 +63,14 @@ impl Photo {
 
 #[cfg(feature = "ssr")]
 pub(crate) async fn get_flickr_pictures(user_id: &'static str) -> Option<FlickrGetPhotosResponse> {
-    use leptos::tracing::info;
+    use log::info;
 
     use crate::flickr::cache::FlickrApiCache;
     if let Some(pictures) = FlickrApiCache::get_cached_user_pictures(user_id).await {
         info!("returning cached flickr response");
         return Some(pictures);
     }
-    let api_key = std::env::var("FLICKR_KEY").expect("flickr api key env needs to be set");
+    let api_key = std::env::var("FLICKR_KEY").ok()?;
     let url = format!("https://www.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key={api_key}&user_id={user_id}&format=json&nojsoncallback=1");
     let client = reqwest::Client::new();
     info!("fetching url {url}");

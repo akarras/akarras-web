@@ -1,8 +1,8 @@
 use crate::components::*;
 use chrono::offset::Utc;
 use chrono::DateTime;
-use leptos::*;
-use leptos_router::*;
+use leptos::prelude::*;
+use leptos_router::{components::*, hooks::*};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
@@ -108,20 +108,20 @@ impl Blog {
     }
 }
 
-#[server(BlogPosts, "/api", "GetJSON")]
+#[server]
 pub(crate) async fn get_blog_posts() -> Result<Blog, ServerFnError> {
     Blog::load_from_directory()
         .await
-        .ok_or(ServerFnError::ServerError(
+        .ok_or(ServerFnError::new(
             "Unable to get blog posts".to_string(),
         ))
 }
 
-#[server(BlogPost, "/api", "GetJSON")]
+#[server]
 pub(crate) async fn get_post(slug: String) -> Result<Post, ServerFnError> {
     Post::load_from_file(&slug)
         .await
-        .ok_or(ServerFnError::ServerError(format!(
+        .ok_or(ServerFnError::new(format!(
             "Unable to get post with slug: {slug}"
         )))
 }
@@ -136,7 +136,7 @@ pub(crate) fn Blog() -> impl IntoView {
 
 #[component]
 pub(crate) fn BlogList() -> impl IntoView {
-    let blog_posts = create_resource(|| {}, |()| async move { get_blog_posts().await });
+    let blog_posts = Resource::new(|| {}, |()| async move { get_blog_posts().await });
     view! {
         <Suspense fallback=move || view!{ "Loading"}>
             {move || {
@@ -145,7 +145,7 @@ pub(crate) fn BlogList() -> impl IntoView {
                     blog.posts.into_iter().map(move |post| {
                         view!{
                             <div>
-                                <span class="text-3xl font-bold">{&post.title}</span>
+                                <span class="text-3xl font-bold">{post.title.clone()}</span>
                                 <div class="flex flex-row gap-2">
                                     <span>"tags:"</span>
                                     {post.tags.into_iter().map(|tag| view!{ <span class="">{tag}</span>}).collect::<Vec<_>>()}
@@ -165,13 +165,13 @@ pub(crate) fn BlogList() -> impl IntoView {
 #[component]
 pub(crate) fn BlogItem() -> impl IntoView {
     let params = use_params_map();
-    let post = create_resource(
-        move || params.with(|p| p.get("slug").cloned()),
+    let post = Resource::new(
+        move || params.with(|p| p.get("slug").map(|s| s.to_string())),
         move |slug| async move {
             if let Some(slug) = slug {
                 get_post(slug).await
             } else {
-                Err(ServerFnError::MissingArg("No slug provided".to_string()))
+                Err(ServerFnError::new("No slug provided".to_string()))
             }
         },
     );

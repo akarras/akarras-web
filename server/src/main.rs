@@ -1,14 +1,32 @@
 use app::*;
-use axum::{
-    routing::{get, post},
-    Router,
-};
+use axum::Router;
 use fileserv::file_and_error_handler;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_meta::*;
 use log::info;
 
 pub mod fileserv;
+
+fn shell(options: LeptosOptions) -> impl IntoView {
+    use leptos::prelude::*;
+    use leptos_meta::*;
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options />
+                <MetaTags />
+            </head>
+            <body class="bg-neutral-100 dark:bg-neutral-950 text-base text-neutral-900 dark:text-neutral-200">
+                <App />
+            </body>
+        </html>
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -19,23 +37,22 @@ async fn main() {
     // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
     // Alternately a file can be specified such as Some("Cargo.toml")
     // The file would need to be included with the executable when moved to deployment
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
-    let routes = generate_route_list(|| view! {  <App/> });
+    let routes = generate_route_list(App);
     // build our application with a route
     let app = Router::new()
-        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .route("/api/*fn_name", get(leptos_axum::handle_server_fns))
-        .leptos_routes(&leptos_options, routes, || view! {  <App/> })
+        .leptos_routes(&leptos_options, routes, {
+            let leptos_options = leptos_options.clone();
+            move || shell(leptos_options.clone())
+        })
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
-    // run our app with hyper
-    // `axum::Server` is a re-export of `hyper::Server`
     info!("listening on http://{}", &addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }

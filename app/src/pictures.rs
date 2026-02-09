@@ -1,5 +1,5 @@
-use leptos::*;
-use leptos_router::*;
+use leptos::prelude::*;
+use leptos_router::components::*;
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -16,11 +16,11 @@ pub struct Pictures {
     recent_pictures: Vec<Picture>,
 }
 
-#[server(GetPictures, "/api", "GetJSON")]
+#[server]
 async fn get_pictures(size: Option<PhotoSize>) -> Result<Pictures, ServerFnError> {
     let pictures = crate::flickr::get_flickr_pictures("198236541@N06")
         .await
-        .ok_or(ServerFnError::ServerError(
+        .ok_or(ServerFnError::new(
             "Flickr request failed".to_string(),
         ))?;
     let photos = pictures
@@ -40,7 +40,7 @@ async fn get_pictures(size: Option<PhotoSize>) -> Result<Pictures, ServerFnError
 #[component]
 pub(crate) fn Pictures() -> impl IntoView {
     let recent_pictures =
-        create_resource(move || {}, move |_| get_pictures(Some(PhotoSize::Large)));
+        Resource::new(move || {}, move |_| get_pictures(Some(PhotoSize::Large)));
 
     view! {  <div>
         <a class="text-2xl font-bold" href="https://www.flickr.com/photos/198236541@N06">"flickr"</a>
@@ -67,12 +67,12 @@ pub(crate) fn Pictures() -> impl IntoView {
 
 #[component]
 pub(crate) fn SmallPhotos() -> impl IntoView {
-    let recent_pictures = create_resource(move || {}, move |_| get_pictures(None));
+    let recent_pictures = Resource::new(move || {}, move |_| get_pictures(None));
 
     view! {  <div>
         <div class="flex flex-column">
             <Suspense fallback=move || view!{ "loading"}>
-                <A href="/photos" class="snap-y snap-mandatory h-64 overflow-y-auto">
+                <A href="/photos" attr:class="snap-y snap-mandatory h-64 overflow-y-auto">
                 {move || {
                     let pictures = recent_pictures.get();
                     // ignore errors for now

@@ -33,6 +33,6 @@ web-sys = {version = "0.3.66", features = ["HtmlElement"]}
 
 [features]
 default = []
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "charming", "charming/wasm"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "dep:tokio", "dep:reqwest", "dep:retainer", "leptos-use/ssr"]
+hydrate = ["leptos/hydrate", "charming", "charming/wasm"]
+ssr = ["leptos/ssr", "dep:leptos_axum", "dep:tokio", "dep:reqwest", "dep:retainer", "leptos-use/ssr", "leptos-use/axum"]
 
