@@ -1,7 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@tailwind variants;
+@import "tailwindcss";
+@source "../app/src";
+@source "../server/src";
+@plugin "@tailwindcss/typography";
 
 @layer components {
     .prose {

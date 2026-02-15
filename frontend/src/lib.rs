@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use app::*;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::wasm_bindgen;

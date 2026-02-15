@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use app::*;
 use axum::Router;
 use fileserv::file_and_error_handler;
@@ -11,6 +13,7 @@ pub mod fileserv;
 fn shell(options: LeptosOptions) -> impl IntoView {
     use leptos::prelude::*;
     use leptos_meta::*;
+    provide_meta_context();
     view! {
         <!DOCTYPE html>
         <html lang="en">
@@ -19,6 +22,7 @@ fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone() />
                 <HydrationScripts options />
+                <Stylesheet id="leptos" href="/pkg/akarras.css"/>
                 <MetaTags />
             </head>
             <body class="bg-amber-50 dark:bg-slate-900 text-base text-slate-800 dark:text-amber-50">

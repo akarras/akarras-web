@@ -22,9 +22,6 @@ pub mod error_template;
 pub fn App() -> impl IntoView {
     provide_meta_context();
     view! {
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/akarras.css"/>
-
         <Title text="aaron karras' personal home page"/>
         // content for this welcome page
         <Router>
