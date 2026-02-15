@@ -1,17 +1,28 @@
 FROM rustlang/rust:nightly-bullseye as builder
 
-# RUN wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
-# RUN tar -xvf cargo-binstall-x86_64-unknown-linux-musl.tgz
-# RUN echo $PATH
-# RUN cp cargo-binstall /usr/local/cargo/bin 
-# RUN cargo binstall cargo-leptos -y
-RUN cargo install cargo-leptos
+# Install cargo-binstall for fast prebuilt binary installations
+RUN wget -qO- https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz | tar -xzf - -C /usr/local/cargo/bin
+
+# Install cargo-leptos and wasm-bindgen-cli via binstall instead of compiling from source
+RUN cargo binstall cargo-leptos -y
+RUN cargo binstall wasm-bindgen-cli@0.2.108 -y
+
+# Add nightly rust-src and wasm target
 RUN rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 RUN rustup target add wasm32-unknown-unknown
-RUN mkdir -p /app
+
+# Install Node.js for Tailwind CSS plugins (@tailwindcss/typography)
+RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+
+# Install npm dependencies first for better layer caching
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Copy the rest of the source
 COPY . .
-# ENV LEPTOS_BIN_TARGET_TRIPLE="x86_64-unknown-linux-gnu"
+
 RUN cargo leptos --manifest-path=./Cargo.toml build --release -vv
 
 FROM rustlang/rust:nightly-bullseye-slim as runner
